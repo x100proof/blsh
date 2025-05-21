@@ -14,6 +14,24 @@ enum Value {
     Scalar(blst_scalar),
 }
 
+#[derive(Debug)]
+enum ParseError {
+    InvalidBigInt,
+    ScalarTooBig,
+    CoordTooBig,
+    PointNotOnCurve,
+    InvalidCompressedPoint,
+    InvalidExpression,
+    MismatchedOperands,
+    NotASquare,
+}
+
+impl std::fmt::Display for ParseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
 impl std::fmt::Display for Value {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -46,131 +64,116 @@ fn scalar_to_hex(s: &blst_scalar) -> String {
     format!("0x{}", hex::encode(out))
 }
 
-fn parse_big_int(input: &str) -> Option<BigUint> {
+fn parse_big_int(input: &str) -> Result<BigUint, ParseError> {
     if let Some(hex) = input.strip_prefix("0x") {
-        BigUint::parse_bytes(hex.as_bytes(), 16)
+        BigUint::parse_bytes(hex.as_bytes(), 16).ok_or(ParseError::InvalidBigInt)
     } else {
-        BigUint::from_str(input).ok()
+        BigUint::from_str(input).map_err(|_| ParseError::InvalidBigInt)
     }
 }
 
-fn parse_let(line: &str) -> Option<(String, Value)> {
-    if let Some(rest) = line.strip_prefix("let ") {
-        let parts: Vec<&str> = rest.splitn(2, '=').map(|s| s.trim()).collect();
-        if parts.len() == 2 {
-            let name = parts[0].to_string();
-            let expr = parts[1];
-            let value = parse_expr(expr)?;
-            return Some((name, value));
+fn parse_scalar(input: &str) -> Result<Value, ParseError> {
+    let bigint = parse_big_int(input)?;
+    let bytes = bigint.to_bytes_be();
+    if bytes.len() > 32 {
+        return Err(ParseError::ScalarTooBig);
+    }
+    let mut padded = [0u8; 32];
+    padded[32 - bytes.len()..].copy_from_slice(&bytes);
+    let mut s = blst_scalar::default();
+    unsafe { blst_scalar_from_bendian(&mut s, padded.as_ptr()) };
+    Ok(Value::Scalar(s))
+}
+
+fn parse_coord(input: &str) -> Result<blst_fp, ParseError> {
+    let bigint = parse_big_int(input)?;
+    let bytes = bigint.to_bytes_be();
+    if bytes.len() > 48 {
+        return Err(ParseError::CoordTooBig);
+    }
+    let mut padded = [0u8; 48];
+    padded[48 - bytes.len()..].copy_from_slice(&bytes);
+    let mut fp = blst_fp::default();
+    unsafe { blst_fp_from_bendian(&mut fp, padded.as_ptr()) };
+    Ok(fp)
+}
+
+fn parse_point(x: &str, y: &str) -> Result<Value, ParseError> {
+    let x_fp = parse_coord(x)?;
+    let y_fp = parse_coord(y)?;
+    let mut aff = blst_p1_affine { x: x_fp, y: y_fp };
+    if !unsafe { blst_p1_affine_on_curve(&aff) } {
+        return Err(ParseError::PointNotOnCurve);
+    }
+    let mut p = blst_p1::default();
+    unsafe { blst_p1_from_affine(&mut p, &aff) };
+    Ok(Value::Point1(p))
+}
+
+fn parse_point_compressed(hex_str: &str) -> Result<Value, ParseError> {
+    let bytes = hex::decode(hex_str.strip_prefix("0x").unwrap_or(hex_str)).map_err(|_| ParseError::InvalidBigInt)?;
+    if bytes.len() != 48 {
+        return Err(ParseError::InvalidCompressedPoint);
+    }
+    let mut aff = blst_p1_affine::default();
+    let err = unsafe { blst_p1_uncompress(&mut aff, bytes.as_ptr()) };
+    if err != BLST_ERROR::BLST_SUCCESS {
+        return Err(ParseError::InvalidCompressedPoint);
+    }
+    let mut p = blst_p1::default();
+    unsafe { blst_p1_from_affine(&mut p, &aff); }
+    Ok(Value::Point1(p))
+}
+
+fn eval_mul(lhs: Value, rhs: Value) -> Result<Value, ParseError> {
+    match (lhs, rhs) {
+        (Value::Point1(p), Value::Scalar(s)) | (Value::Scalar(s), Value::Point1(p)) => {
+            let mut result = blst_p1::default();
+            unsafe { blst_p1_mult(&mut result, &p, s.b.as_ptr(), 256); }
+            Ok(Value::Point1(result))
         }
+        _ => Err(ParseError::MismatchedOperands),
     }
-    None
 }
 
-fn parse_expr(expr: &str) -> Option<Value> {
+fn parse_expr(expr: &str) -> Result<Value, ParseError> {
     if expr.starts_with("scalar(") {
-        let inner = expr.strip_prefix("scalar(")?.strip_suffix(")")?.trim();
-        return Some(parse_scalar(inner)?);
+        let inner = expr.strip_prefix("scalar(").unwrap().strip_suffix(")").unwrap().trim();
+        parse_scalar(inner)
     } else if expr.starts_with("coord1(") {
-        let inner = expr.strip_prefix("coord(")?.strip_suffix(")")?.trim();
-        return Some(Value::Coord1(parse_coord(inner)?));
+        let inner = expr.strip_prefix("coord1(").unwrap().strip_suffix(")").unwrap().trim();
+        parse_coord(inner).map(Value::Coord1)
     } else if expr.starts_with("point1(") {
-        let inner = expr.strip_prefix("point(")?.strip_suffix(")")?.trim();
+        let inner = expr.strip_prefix("point1(").unwrap().strip_suffix(")").unwrap().trim();
         let parts: Vec<&str> = inner.split(',').map(|s| s.trim()).collect();
         if parts.len() != 2 {
-            return None;
+            return Err(ParseError::InvalidExpression);
         }
-        return Some(parse_point(parts[0], parts[1])?);
+        parse_point(parts[0], parts[1])
     } else if expr.starts_with("point1c(") {
-        let inner = expr.strip_prefix("point1c(")?.strip_suffix(")")?.trim();
-        return Some(parse_point_compressed(inner)?);
+        let inner = expr.strip_prefix("point1c(").unwrap().strip_suffix(")").unwrap().trim();
+        parse_point_compressed(inner)
     } else if expr.starts_with("sqrt(") {
-        let inner = expr.strip_prefix("sqrt(")?.strip_suffix(")")?.trim();
+        let inner = expr.strip_prefix("sqrt(").unwrap().strip_suffix(")").unwrap().trim();
         let coord = parse_coord(inner)?;
         if unsafe { blst_fp_is_square(&coord) } {
             let mut result = blst_fp::default();
             unsafe { blst_fp_sqrt(&mut result, &coord); }
-            return Some(Value::Coord1(result));
+            Ok(Value::Coord1(result))
         } else {
-            println!("Coordinate has no square root");
-            return None;
+            Err(ParseError::NotASquare)
         }
     } else if expr.contains('*') {
         let parts: Vec<&str> = expr.split('*').map(|s| s.trim()).collect();
         if parts.len() == 2 {
             let lhs = parse_expr(parts[0])?;
             let rhs = parse_expr(parts[1])?;
-            return Some(eval_mul(lhs, rhs)?);
+            eval_mul(lhs, rhs)
+        } else {
+            Err(ParseError::InvalidExpression)
         }
-    }
-    None
-}
-
-fn parse_scalar(input: &str) -> Option<Value> {
-    let bigint = parse_big_int(input)?;
-    let bytes = bigint.to_bytes_be();
-    if bytes.len() > 32 {
-        return None;
-    }
-    let mut padded = [0u8; 32];
-    padded[32 - bytes.len()..].copy_from_slice(&bytes);
-    let mut s = blst_scalar::default();
-    unsafe { blst_scalar_from_bendian(&mut s, padded.as_ptr()) };
-    Some(Value::Scalar(s))
-}
-
-fn parse_coord(input: &str) -> Option<blst_fp> {
-    let bigint = parse_big_int(input)?;
-    let bytes = bigint.to_bytes_be();
-    if bytes.len() > 48 {
-        return None;
-    }
-    let mut padded = [0u8; 48];
-    padded[48 - bytes.len()..].copy_from_slice(&bytes);
-    let mut fp = blst_fp::default();
-    unsafe { blst_fp_from_bendian(&mut fp, padded.as_ptr()) };
-    Some(fp)
-}
-
-fn parse_point(x: &str, y: &str) -> Option<Value> {
-    let x_fp = parse_coord(x)?;
-    let y_fp = parse_coord(y)?;
-
-    let aff = blst_p1_affine { x: x_fp, y: y_fp };
-    if !(unsafe { blst_p1_affine_on_curve(&aff) }) {
-        return None;
-    }
-    let mut p = blst_p1::default();
-    unsafe { blst_p1_from_affine(&mut p, &aff) };
-    Some(Value::Point1(p))
-}
-
-fn parse_point_compressed(hex_str: &str) -> Option<Value> {
-    let bytes = hex::decode(hex_str.strip_prefix("0x").unwrap_or(hex_str)).ok()?;
-    if bytes.len() != 48 {
-        return None;
-    }
-    let mut aff = blst_p1_affine::default();
-    let err = unsafe { blst_p1_uncompress(&mut aff, bytes.as_ptr()) };
-    if err != BLST_ERROR::BLST_SUCCESS {
-        return None;
-    }
-    let mut p = blst_p1::default();
-    unsafe { blst_p1_from_affine(&mut p, &aff); }
-    Some(Value::Point1(p))
-}
-
-fn eval_mul(lhs: Value, rhs: Value) -> Option<Value> {
-    match (lhs, rhs) {
-        (Value::Point1(p), Value::Scalar(s)) | (Value::Scalar(s), Value::Point1(p)) => {
-            let mut result = blst_p1::default();
-            unsafe { blst_p1_mult(&mut result, &p, s.b.as_ptr(), 256); }
-            Some(Value::Point1(result))
-        }
-        _ => {
-            println!("Unsupported operand types for *");
-            None
-        }
+    } else {
+        Err(ParseError::InvalidExpression)
     }
 }
 
@@ -183,6 +186,7 @@ fn main() {
         let readline = rl.readline("blsh> ");
         match readline {
             Ok(line) => {
+                rl.add_history_entry(&line);
                 let line = line.trim();
                 if line.is_empty() {
                     continue;
@@ -190,17 +194,28 @@ fn main() {
                 if line == "exit" || line == "quit" {
                     break;
                 }
-                if let Some((name, value)) = parse_let(line) {
-                    env.insert(name.clone(), value.clone());
-                    println!("{} bound", name);
-                } else if let Some(val) = env.get(line) {
-                    println!("{}", val);
-                } else if let Some(result) = parse_expr(line) {
-                    println!("{}", result);
-                } else {
-                    println!("Unrecognized input or unknown identifier");
+                if let Some(rest) = line.strip_prefix("let ") {
+                    let parts: Vec<&str> = rest.splitn(2, '=').map(|s| s.trim()).collect();
+                    if parts.len() == 2 {
+                        let name = parts[0].to_string();
+                        match parse_expr(parts[1]) {
+                            Ok(value) => {
+                                env.insert(name.clone(), value.clone());
+                                println!("{} = {}", name, value);
+                            }
+                            Err(e) => println!("Error: {}", e),
+                        }
+                        continue;
+                    }
                 }
-                rl.add_history_entry(line).unwrap_or(true);
+                if let Some(val) = env.get(line) {
+                    println!("{}", val);
+                } else {
+                    match parse_expr(line) {
+                        Ok(result) => println!("{}", result),
+                        Err(e) => println!("Error: {}", e),
+                    }
+                }
             }
             Err(_) => break,
         }
