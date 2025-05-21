@@ -1,20 +1,24 @@
+
+
+use std::collections::HashMap;
+use rustyline::Editor;
+use rustyline::history::FileHistory;
+
 mod ast;
 mod eval;
 mod parser;
 mod types;
 
-use rustyline::Editor;
-use rustyline::history::FileHistory;
-use std::collections::HashMap;
-use crate::parser::parse_statement;
-use crate::eval::eval_expr;
 use crate::ast::{Statement, Command};
-use crate::types::{Value, ParseError};
+use crate::eval::eval_expr;
+use crate::parser::parse_statement;
+use crate::types::{Value, EvalError, is_builtin, builtin_env};
 
 fn main() {
     let mut rl = Editor::<(), FileHistory>::new().unwrap();
     let _ = rl.load_history("blsh-history.txt");
-    let mut env: HashMap<String, Value> = HashMap::new();
+
+    let mut env: HashMap<String, Value> = builtin_env();
 
     loop {
         let readline = rl.readline("blsh> ");
@@ -31,29 +35,30 @@ fn main() {
                 match parse_statement(line) {
                     Ok(stmt) => match stmt {
                         Statement::Let(name, expr) => {
+                            if is_builtin(&name) {
+                                println!("Error: {}", EvalError::CannotRedefineBuiltin);
+                                continue;
+                            }
                             match eval_expr(expr, &env) {
-                                Ok(val) => {
-                                    env.insert(name.clone(), val.clone());
-                                    println!("{} = {}", name, val);
+                                Ok(value) => {
+                                    env.insert(name.clone(), value.clone());
+                                    println!("{} = {}", name, value);
                                 }
-                                Err(e) => println!("Error: {}", e),
+                                Err(e) => println!("Eval error: {}", e),
                             }
                         }
-                        Statement::Command(Command::Info(expr)) => {
-                            match eval_expr(expr, &env) {
+                        Statement::Command(cmd) => match cmd {
+                            ast::Command::Info(expr) => match eval_expr(expr, &env) {
                                 Ok(val) => {
-                                    // Custom print function
-                                    println!("Detailed info: {}", val); // FIXME: Add more
-                                }
-                                Err(e) => println!("Error: {}", e),
-                            }
+                                    println!("{}", val.describe());
+                                },
+                                Err(e) => println!("Eval error: {}", e),
+                            },
                         }
-                        Statement::Expr(expr) => {
-                            match eval_expr(expr, &env) {
-                                Ok(val) => println!("{}", val),
-                                Err(e) => println!("Error: {}", e),
-                            }
-                        }
+                        Statement::Expr(expr) => match eval_expr(expr, &env) {
+                            Ok(result) => println!("{}", result),
+                            Err(e) => println!("Eval error: {}", e),
+                        },
                     },
                     Err(e) => println!("Parse error: {}", e),
                 }
@@ -61,5 +66,6 @@ fn main() {
             Err(_) => break,
         }
     }
+
     let _ = rl.save_history("blsh-history.txt");
 }
