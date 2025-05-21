@@ -136,12 +136,19 @@ fn eval_mul(lhs: Value, rhs: Value) -> Result<Value, ParseError> {
     }
 }
 
-fn parse_expr(expr: &str) -> Result<Value, ParseError> {
+fn parse_expr_with_env(expr: &str, env: &HashMap<String, Value>) -> Result<Value, ParseError> {
     if expr.starts_with("scalar(") {
         let inner = expr.strip_prefix("scalar(").unwrap().strip_suffix(")").unwrap().trim();
         parse_scalar(inner)
     } else if expr.starts_with("coord1(") {
         let inner = expr.strip_prefix("coord1(").unwrap().strip_suffix(")").unwrap().trim();
+        if let Some(value) = env.get(inner) {
+            if let Value::Coord1(fp) = value.clone() {
+                return Ok(Value::Coord1(fp));
+            } else {
+                return Err(ParseError::InvalidExpression);
+            }
+        }
         parse_coord(inner).map(Value::Coord1)
     } else if expr.starts_with("point1(") {
         let inner = expr.strip_prefix("point1(").unwrap().strip_suffix(")").unwrap().trim();
@@ -149,11 +156,28 @@ fn parse_expr(expr: &str) -> Result<Value, ParseError> {
         if parts.len() != 2 {
             return Err(ParseError::InvalidExpression);
         }
-        parse_point(parts[0], parts[1])
+        let x_fp = match env.get(parts[0]) {
+            Some(Value::Coord1(fp)) => *fp,
+            _ => parse_coord(parts[0])?
+        };
+        let y_fp = match env.get(parts[1]) {
+            Some(Value::Coord1(fp)) => *fp,
+            _ => parse_coord(parts[1])?
+        };
+
+        let aff = blst_p1_affine { x: x_fp , y: y_fp };
+        let mut p = blst_p1::default();
+        unsafe { blst_p1_from_affine(&mut p, &aff); }
+        return Ok(Value::Point1(p));
     } else if expr.starts_with("point1c(") {
         let inner = expr.strip_prefix("point1c(").unwrap().strip_suffix(")").unwrap().trim();
         parse_point_compressed(inner)
     } else if expr.starts_with("sqrt(") {
+        let inner = expr.strip_prefix("sqrt(").unwrap().strip_suffix(")").unwrap().trim();
+        let coord = match env.get(inner) {
+            Some(Value::Coord1(fp)) => *fp,
+            _ => parse_coord(inner)?
+        };
         let inner = expr.strip_prefix("sqrt(").unwrap().strip_suffix(")").unwrap().trim();
         let coord = parse_coord(inner)?;
         if unsafe { blst_fp_is_square(&coord) } {
@@ -166,8 +190,8 @@ fn parse_expr(expr: &str) -> Result<Value, ParseError> {
     } else if expr.contains('*') {
         let parts: Vec<&str> = expr.split('*').map(|s| s.trim()).collect();
         if parts.len() == 2 {
-            let lhs = parse_expr(parts[0])?;
-            let rhs = parse_expr(parts[1])?;
+            let lhs = parse_expr_with_env(parts[0], &env)?;
+            let rhs = parse_expr_with_env(parts[1], &env)?;
             eval_mul(lhs, rhs)
         } else {
             Err(ParseError::InvalidExpression)
@@ -198,7 +222,7 @@ fn main() {
                     let parts: Vec<&str> = rest.splitn(2, '=').map(|s| s.trim()).collect();
                     if parts.len() == 2 {
                         let name = parts[0].to_string();
-                        match parse_expr(parts[1]) {
+                        match parse_expr_with_env(parts[1], &env) {
                             Ok(value) => {
                                 env.insert(name.clone(), value.clone());
                                 println!("{} = {}", name, value);
@@ -211,7 +235,7 @@ fn main() {
                 if let Some(val) = env.get(line) {
                     println!("{}", val);
                 } else {
-                    match parse_expr(line) {
+                    match parse_expr_with_env(line, &env) {
                         Ok(result) => println!("{}", result),
                         Err(e) => println!("Error: {}", e),
                     }
