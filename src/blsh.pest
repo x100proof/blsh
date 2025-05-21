@@ -1,0 +1,24 @@
+WHITESPACE  = _{ " " | "\t" | "\r" | "\n" }
+
+program     = { SOI ~ statement ~ EOI }
+
+statement   = _{ let_stmt | command_stmt | expr }
+
+let_stmt        = { "let" ~ ident ~ "=" ~ expr }
+command_stmt    = { "info" ~ expr }
+
+expr        = { term ~ (bin_op ~ term)* }
+term        = _{ scalar | coord1 | point1 | point1c | sqrt | coord1_arg | ident }
+
+scalar          = { "scalar" ~ "(" ~ number ~ ")" }
+coord1          = { "coord1" ~ "(" ~ number ~ ")" }
+point1          = { "point1" ~ "(" ~ coord1_arg ~ "," ~ coord1_arg ~ ")" }
+point1c         = { "point1c" ~ "(" ~ number ~ ")" }
+sqrt            = { "sqrt" ~ "(" ~ coord1_arg ~ ")" }
+
+coord1_arg      = _{ number | ident }
+
+number          = @{ "0x"? ~ ASCII_HEX_DIGIT+ }
+ident           = @{ (ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_")* }
+
+bin_op          = _{ "*" | "+" | "-" }

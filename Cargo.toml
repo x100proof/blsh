@@ -5,6 +5,16 @@ edition = "2021"
 
 [dependencies]
 blst = "0.3.14"
-hex = "0.4"
-rustyline = "12"
+pest = "2.8.0"
+pest_derive = "2.8.0"
+rustyline = "15.0.0"
+hex = "0.4.3"
 num-bigint = "0.4.6"
+num-traits = "0.2.19"
+
+[build-dependencies]
+pest_generator = "2.8.0"
+
+[profile.release]
+opt-level = "z"  # Or "s" if you prefer balance over size
+lto = true
