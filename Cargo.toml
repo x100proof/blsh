@@ -1,0 +1,10 @@
+[package]
+name = "blsh"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+blst = "0.3.14"
+hex = "0.4"
+rustyline = "12"
+num-bigint = "0.4.6"
