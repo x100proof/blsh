@@ -12,10 +12,10 @@ pub enum Command {
 
 #[derive(Debug, Clone)]
 pub enum Expr {
-    Scalar(String),
-    Coord1(String),
+    Scalar([u8; 32]),
+    Coord1([u8; 48]),
     Point1(Box<Expr>, Box<Expr>),
-    Point1Compressed(String),
+    Point1Compressed([u8; 48]),
     Sqrt(Box<Expr>),
     Mul(Box<Expr>, Box<Expr>),
     Var(String),

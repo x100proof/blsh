@@ -10,19 +10,14 @@ pub enum Value {
 }
 
 #[derive(Debug)]
-pub enum ParseError {
-    InvalidBigInt,
-    ScalarTooBig,
-    CoordTooBig,
-    PointNotOnCurve,
-    InvalidCompressedPoint,
+pub enum EvalError {
     InvalidExpression,
     MismatchedOperands,
     NotASquare,
-    TypeError(&'static str),
+    InvalidCompressedPoint,
 }
 
-impl std::fmt::Display for ParseError {
+impl std::fmt::Display for EvalError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:?}", self)
     }
@@ -58,4 +53,17 @@ fn scalar_to_hex(s: &blst_scalar) -> String {
     let mut out = [0u8; 32];
     unsafe { blst_bendian_from_scalar(out.as_mut_ptr(), s) };
     format!("0x{}", hex::encode(out))
+}
+
+#[derive(Debug)]
+pub enum ParseError {
+    InvalidNumber,
+    UnexpectedToken,
+    BareNumber,
+}
+
+impl std::fmt::Display for ParseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
 }
