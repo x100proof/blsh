@@ -16,7 +16,7 @@ pub struct ParseError {
 #[derive(Debug, Clone)]
 pub enum ParseErrorKind {
     InvalidNumber,
-    NumberTooLarge,
+    NumberTooLarge(String),
     UnexpectedToken,
     ReservedWord,
     BareNumber,
@@ -52,9 +52,9 @@ impl std::fmt::Display for ParseError {
         }
 
 
-        let msg = match self.kind {
+        let msg = match &self.kind {
             ParseErrorKind::InvalidNumber => "Number not valid hex",
-            ParseErrorKind::NumberTooLarge => "Number too large",
+            ParseErrorKind::NumberTooLarge(hex_str) => &format!("Must be less than {}", hex_str),
             ParseErrorKind::UnexpectedToken => "Unexpected end of input or unexpected token",
             ParseErrorKind::ReservedWord => "cannot use reserved word as identifier",
             ParseErrorKind::BareNumber => "Bare number: use a constructor like scalar(...)",
@@ -109,7 +109,6 @@ fn parse_expr(pair: Pair<Rule>) -> Result<Expr, ParseError> {
     match pair.as_rule() {
         Rule::expr => {
             let mut inner = pair.into_inner();
-//            println!("*** expr = {:?}", inner);
             let mut lhs = parse_expr(inner.next().unwrap())?;
             while let Some(op_pair) = inner.next() {
                 let rhs = parse_expr(inner.next().unwrap())?;
@@ -155,7 +154,6 @@ fn parse_primary(pair: Pair<Rule>) -> Result<Expr, ParseError> {
     match pair.as_rule() {
         Rule::scalar => {
             let inner = pair.into_inner().next().unwrap();
-//            println!("*** scalar inner {:?}", inner);
             let bytes = parse_number::<32>(inner)?;
             Ok(Expr::Scalar(bytes))
         }
@@ -164,19 +162,31 @@ fn parse_primary(pair: Pair<Rule>) -> Result<Expr, ParseError> {
             let bytes = parse_number::<48>(inner)?;
             Ok(Expr::Coord1(bytes))
         }
+        Rule::coord2 => {
+            let inner = pair.into_inner().next().unwrap();
+            let bytes = parse_number::<96>(inner)?;
+            Ok(Expr::Coord2(bytes))
+        }
         Rule::point1 => {
             let mut inner = pair.into_inner();
-//            println!("*** point1 inner {:?}", inner);
-//            println!("+++ parse x");
-            let x = parse_number_or_ident(inner.next().unwrap())?;
-//            println!("+++ parse y");
-            let y = parse_number_or_ident(inner.next().unwrap())?;
+            let x = parse_coerce_coord1(inner.next().unwrap())?;
+            let y = parse_coerce_coord1(inner.next().unwrap())?;
             Ok(Expr::Point1(Box::new(x), Box::new(y)))
         }
         Rule::point1c => {
             let inner = pair.into_inner().next().unwrap();
             let bytes = parse_number::<48>(inner)?;
             Ok(Expr::Point1Compressed(bytes))
+        }
+        Rule::point2 => {
+            let mut inner = pair.into_inner();
+            let x = parse_coerce_coord2(inner.next().unwrap())?;
+            let y = parse_coerce_coord2(inner.next().unwrap())?;
+            Ok(Expr::Point2(Box::new(x), Box::new(y)))        }
+        Rule::point2c => {
+            let inner = pair.into_inner().next().unwrap();
+            let bytes = parse_number::<96>(inner)?;
+            Ok(Expr::Point2Compressed(bytes))
         }
         Rule::sqrt => {
             let inner = pair.into_inner().next().unwrap();
@@ -189,20 +199,45 @@ fn parse_primary(pair: Pair<Rule>) -> Result<Expr, ParseError> {
     }
 }
 
-
-fn parse_number_or_ident(pair: Pair<Rule>) -> Result<Expr, ParseError> {
-//    println!("*** number_or_ident pair {:?}", pair);
-//    println!("*** number_or_ident_as_rule {:?}", pair.as_rule());
+fn parse_coerce_coord1(pair: Pair<Rule>) -> Result<Expr, ParseError> {
     let span = pair.as_span();
     match pair.as_rule() {
+        Rule::coord2 => parse_expr(pair),
         Rule::number => {
             let bytes = parse_number::<48>(pair)?;
             Ok(Expr::Coord1(bytes))
-        }
+        },
         Rule::ident => Ok(Expr::Var(parse_ident(pair)?)),
-        _ => Err(parse_error(ParseErrorKind::UnexpectedToken, span)),
+        _ => Err(parse_error(ParseErrorKind::UnexpectedToken, span))
     }
 }
+
+
+fn parse_coerce_coord2(pair: Pair<Rule>) -> Result<Expr, ParseError> {
+    let span = pair.as_span();
+    match pair.as_rule() {
+        Rule::coord2 => parse_expr(pair),
+        Rule::number => {
+            let bytes = parse_number::<96>(pair)?;
+            Ok(Expr::Coord2(bytes))
+        },
+        Rule::ident => Ok(Expr::Var(parse_ident(pair)?)),
+        _ => Err(parse_error(ParseErrorKind::UnexpectedToken, span))
+    }
+}
+
+
+// fn parse_number_or_ident(pair: Pair<Rule>) -> Result<Expr, ParseError> {
+//     let span = pair.as_span();
+//     match pair.as_rule() {
+//         Rule::number => {
+//             let bytes = parse_number::<48>(pair)?;
+//             Ok(Expr::Coord1(bytes))
+//         }
+//         Rule::ident => Ok(Expr::Var(parse_ident(pair)?)),
+//         _ => Err(parse_error(ParseErrorKind::UnexpectedToken, span)),
+//     }
+// }
 
 fn parse_ident(pair: Pair<Rule>) -> Result<String, ParseError> {
     let span = pair.as_span();
@@ -226,7 +261,7 @@ fn parse_number<const N: usize>(pair: Pair<Rule>) -> Result<[u8; N], ParseError>
     };
     let bytes = n.to_bytes_be();
     if bytes.len() > N {
-        return Err(parse_error(ParseErrorKind::NumberTooLarge, span));
+        return Err(parse_error(ParseErrorKind::NumberTooLarge("FIXME".to_string()), span));
     }
     let mut padded = [0u8; N];
     padded[N - bytes.len()..].copy_from_slice(&bytes);

@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::env;
 use std::path::PathBuf;
 use std::fs;
 use rustyline::Editor;

@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use crate::ast::Expr;
-use crate::types::{fp_to_hex, scalar_to_hex, EvalError, Value};
+use crate::types::{fp_to_hex, EvalError, Value};
 use blst::*;
 
 pub fn eval(expr: Expr, env: &HashMap<String, Value>) -> Result<Value, EvalError> {
@@ -15,11 +15,17 @@ pub fn eval(expr: Expr, env: &HashMap<String, Value>) -> Result<Value, EvalError
             unsafe { blst_fp_from_bendian(&mut fp, bytes.as_ptr()) };
             Ok(Value::Coord1(fp))
         }
-        // Expr::Coord2(bytes) => {
-        //     let mut fp2 = blst_fp2::default();
-        //     unsafe { blst_fp2_from_bendian(&mut fp2, bytes.as_ptr()) };
-        //     Ok(Value::Coord2(fp2))
-        // }
+        Expr::Coord2(bytes) => {
+            let mut fp2 = blst_fp2::default();
+            unsafe {
+                // real part (first 48 bytes)
+                blst_fp_from_bendian(&mut fp2.fp[0], bytes.as_ptr());
+
+                // imaginary part (next 48 bytes)
+                blst_fp_from_bendian(&mut fp2.fp[1], bytes.as_ptr().add(48));
+            }
+            Ok(Value::Coord2(fp2))
+        }
         Expr::Point1(x_expr, y_expr) => {
             let x = eval(*x_expr, env)?;
             let y = eval(*y_expr, env)?;
@@ -32,18 +38,18 @@ pub fn eval(expr: Expr, env: &HashMap<String, Value>) -> Result<Value, EvalError
                 Err(EvalError::TypeMismatchPoint1Coord1)
             }
         }
-        // Expr::Point2(x_expr, y_expr) => {
-        //     let x = eval(*x_expr, env)?;
-        //     let y = eval(*y_expr, env)?;
-        //     if let (Value::Coord2(x_fp2), Value::Coord2(y_fp2)) = (x, y) {
-        //         let aff = blst_p2_affine { x: x_fp2, y: y_fp2 };
-        //         let mut p = blst_p2::default();
-        //         unsafe { blst_p2_from_affine(&mut p, &aff); }
-        //         Ok(Value::Point2(p))
-        //     } else {
-        //         Err(EvalError::InvalidExpression)
-        //     }
-        // }
+        Expr::Point2(x_expr, y_expr) => {
+            let x = eval(*x_expr, env)?;
+            let y = eval(*y_expr, env)?;
+            if let (Value::Coord2(x_fp2), Value::Coord2(y_fp2)) = (x, y) {
+                let aff = blst_p2_affine { x: x_fp2, y: y_fp2 };
+                let mut p = blst_p2::default();
+                unsafe { blst_p2_from_affine(&mut p, &aff); }
+                Ok(Value::Point2(p))
+            } else {
+                Err(EvalError::TypeMismatchPoint2Coord2)
+            }
+        }
         Expr::Point1Compressed(bytes) => {
             let mut aff = blst_p1_affine::default();
             let err = unsafe { blst_p1_uncompress(&mut aff, bytes.as_ptr()) };
@@ -99,6 +105,11 @@ pub fn eval(expr: Expr, env: &HashMap<String, Value>) -> Result<Value, EvalError
                     unsafe { blst_p1_add_or_double(&mut out, &p1, &p2); }
                     Ok(Value::Point1(out))
                 }
+                (Value::Point2(p1), Value::Point2(p2)) => {
+                    let mut out = blst_p2::default();
+                    unsafe { blst_p2_add_or_double(&mut out, &p1, &p2); }
+                    Ok(Value::Point2(out))
+                }
                 _ => Err(EvalError::TypeMismatchPoint1Add),
             }
         }
@@ -112,6 +123,12 @@ pub fn eval(expr: Expr, env: &HashMap<String, Value>) -> Result<Value, EvalError
                     unsafe { blst_p1_add_or_double(&mut out, &p1, &p2); }
                     Ok(Value::Point1(out))
                 }
+                (Value::Point2(p1), Value::Point2(mut p2)) => {
+                    unsafe { blst_p2_cneg(&mut p2, true); }
+                    let mut out = blst_p2::default();
+                    unsafe { blst_p2_add_or_double(&mut out, &p1, &p2); }
+                    Ok(Value::Point2(out))
+                }
                 _ => Err(EvalError::TypeMismatchPoint1Sub),
             }
         }
@@ -122,12 +139,15 @@ pub fn eval(expr: Expr, env: &HashMap<String, Value>) -> Result<Value, EvalError
                     unsafe { blst_p1_cneg(&mut p, true); }
                     Ok(Value::Point1(p))
                 }
+                Value::Point2(mut p) => {
+                    unsafe { blst_p2_cneg(&mut p, true); }
+                    Ok(Value::Point2(p))
+                }
                 _ => Err(EvalError::TypeMismatchPoint1Neg),
             }
         }
         Expr::Var(name) => {
             env.get(&name).cloned().ok_or(EvalError::UnknownIdent(name))
         }
-        Expr::Coord2(_) | Expr::Point2(_, _) => todo!()
     }
 }

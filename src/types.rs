@@ -13,6 +13,7 @@ pub enum EvalError {
     TypeMismatchPoint1Coord1,
     TypeMismatchPoint1Neg,
     TypeMismatchPoint1Sub,
+    TypeMismatchPoint2Coord2,
     UnknownIdent(String),
 }
 
@@ -37,6 +38,7 @@ impl std::fmt::Display for EvalError {
             EvalError::TypeMismatchPoint1Coord1 => write!(f, "Can only have Coord1 coordinates when constructing Point1"),
             EvalError::TypeMismatchPoint1Neg => write!(f, "Can only negate Point1 operands"),
             EvalError::TypeMismatchPoint1Sub => write!(f, "Can only subtract Point1 operands"),
+            EvalError::TypeMismatchPoint2Coord2 => write!(f, "Can only have Coord2 coordinates when constructing Point2"),
             EvalError::UnknownIdent(s) => write!(f, "Unknown identifier: {}", s),
             _ => write!(f, "{:?}", self),
         }
@@ -51,8 +53,14 @@ impl std::fmt::Display for Value {
                 unsafe { blst_p1_to_affine(&mut aff, p) };
                 write!(f, "x: {}\ny: {}\n : Point", fp_to_hex(&aff.x), fp_to_hex(&aff.y))
             }
+            Value::Point2(p) => {
+                let mut aff = blst_p2_affine::default();
+                unsafe { blst_p2_to_affine(&mut aff, p) };
+                write!(f, "x: {}\ny: {}\n : Point", fp2_to_hex(&aff.x), fp2_to_hex(&aff.y))
+            }
             Value::Scalar(s) => write!(f, "{} : Scalar", scalar_to_hex(s)),
             Value::Coord1(fp) => write!(f, "{} : Coord1", fp_to_hex(fp)),
+            Value::Coord2(fp2) => write!(f, "{} : Coord2", fp2_to_hex(fp2)),
             _ => write!(f, ": Unsupported display"),
         }
     }
@@ -89,6 +97,14 @@ pub fn fp_to_hex(fp: &blst_fp) -> String {
     unsafe { blst_bendian_from_fp(out.as_mut_ptr(), fp) };
     format!("0x{}", hex::encode(out))
 }
+
+pub fn fp2_to_hex(fp2: &blst_fp2) -> String {
+    let mut out = [0u8; 96];
+    unsafe { blst_bendian_from_fp(out.as_mut_ptr(), &fp2.fp[0]) };
+    unsafe { blst_bendian_from_fp(out.as_mut_ptr().add(48), &fp2.fp[1]) };
+    format!("0x{}", hex::encode(out))
+}
+
 
 pub fn scalar_to_hex(s: &blst_scalar) -> String {
     let mut out = [0u8; 32];
