@@ -226,19 +226,6 @@ fn parse_coerce_coord2(pair: Pair<Rule>) -> Result<Expr, ParseError> {
     }
 }
 
-
-// fn parse_number_or_ident(pair: Pair<Rule>) -> Result<Expr, ParseError> {
-//     let span = pair.as_span();
-//     match pair.as_rule() {
-//         Rule::number => {
-//             let bytes = parse_number::<48>(pair)?;
-//             Ok(Expr::Coord1(bytes))
-//         }
-//         Rule::ident => Ok(Expr::Var(parse_ident(pair)?)),
-//         _ => Err(parse_error(ParseErrorKind::UnexpectedToken, span)),
-//     }
-// }
-
 fn parse_ident(pair: Pair<Rule>) -> Result<String, ParseError> {
     let span = pair.as_span();
     let s = pair.as_str();
@@ -248,7 +235,6 @@ fn parse_ident(pair: Pair<Rule>) -> Result<String, ParseError> {
         Ok(s.to_string())
     }
 }
-
 
 fn parse_number<const N: usize>(pair: Pair<Rule>) -> Result<[u8; N], ParseError> {
     let span = pair.as_span();
