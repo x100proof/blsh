@@ -3,20 +3,91 @@ use pest::iterators::Pair;
 use pest_derive::Parser;
 use num_bigint::BigUint;
 use crate::ast::{Expr, Statement, Command};
-use crate::types::ParseError;
+
+use pest::error::{Error as PestError, ErrorVariant};
+use pest::Span;
+
+#[derive(Debug, Clone)]
+pub struct ParseError {
+    pub kind: ParseErrorKind,
+    pub pest: PestError<Rule>,
+}
+
+#[derive(Debug, Clone)]
+pub enum ParseErrorKind {
+    InvalidNumber,
+    NumberTooLarge,
+    UnexpectedToken,
+    ReservedWord,
+    BareNumber,
+}
+
+// Built-in identifiers are not the same as reserved words
+const RESERVED_WORDS: &[&str] = &[
+    "let", "info", "sqrt", "point1", "point2", "coord1", "coord2", "scalar",
+];
+
+
+impl std::fmt::Display for ParseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+
+        fn clean_parse_error(error: &str) -> String {
+            let lines: Vec<&str> = error.lines().collect();
+
+            if lines.len() <= 2 {
+                return error.to_string(); // Nothing to clean
+            }
+
+            lines[1..lines.len() - 1]  // Skip first and last lines
+                .iter()
+                .map(|line| {
+                    if let Some(idx) = line.find('|') {
+                        line[idx + 1..].to_string()
+                    } else {
+                        line.to_string()
+                    }
+                })
+                .collect::<Vec<String>>()
+                .join("\n")
+        }
+
+
+        let msg = match self.kind {
+            ParseErrorKind::InvalidNumber => "Number not valid hex",
+            ParseErrorKind::NumberTooLarge => "Number too large",
+            ParseErrorKind::UnexpectedToken => "Unexpected end of input or unexpected token",
+            ParseErrorKind::ReservedWord => "cannot use reserved word as identifier",
+            ParseErrorKind::BareNumber => "Bare number: use a constructor like scalar(...)",
+        };
+        writeln!(f, "{}\n{}", msg, clean_parse_error(&format!("{}", self.pest)))
+    }
+}
+
+
+fn parse_error(kind: ParseErrorKind, span: Span) -> ParseError {
+    ParseError {
+        kind: kind,
+        pest: PestError::new_from_span(ErrorVariant::ParsingError { positives: vec![], negatives: vec![] }, span)
+    }
+}
+
+
 
 #[derive(Parser)]
 #[grammar = "blsh.pest"]
+
 pub struct BlshParser;
 
-pub fn parse_statement(input: &str) -> Result<Statement, ParseError> {
+pub fn parse_program(input: &str) -> Result<Statement, ParseError> {
     let mut pairs = BlshParser::parse(Rule::program, input)
-        .map_err(|_| ParseError::UnexpectedToken)?;
-    let stmt = pairs.next().unwrap().into_inner().next().unwrap();
-    parse_stmt(stmt)
+        .map_err(|e| ParseError { kind: ParseErrorKind::UnexpectedToken, pest: e })?;
+    let pair = pairs.next().unwrap();
+    let stmt = pair.into_inner().next().unwrap(); // Now Rule::statement
+    parse_statement(stmt.into_inner().next().unwrap())
 }
 
-fn parse_stmt(pair: Pair<Rule>) -> Result<Statement, ParseError> {
+fn parse_statement(pair: Pair<Rule>) -> Result<Statement, ParseError> {
+    let span = pair.as_span();
     match pair.as_rule() {
         Rule::let_stmt => {
             let mut inner = pair.into_inner();
@@ -29,77 +100,136 @@ fn parse_stmt(pair: Pair<Rule>) -> Result<Statement, ParseError> {
             Ok(Statement::Command(Command::Info(expr)))
         }
         Rule::expr => Ok(Statement::Expr(parse_expr(pair)?)),
-        _ => Err(ParseError::UnexpectedToken),
+        _ => Err(parse_error(ParseErrorKind::UnexpectedToken, span)),
     }
 }
 
 fn parse_expr(pair: Pair<Rule>) -> Result<Expr, ParseError> {
-    let mut inner = pair.into_inner().map(parse_term).collect::<Result<Vec<_>, _>>()?;
-    let mut expr = inner.remove(0);
-    while !inner.is_empty() {
-        let rhs = inner.remove(0);
-        expr = Expr::Mul(Box::new(expr), Box::new(rhs));
+    let span = pair.as_span();
+    match pair.as_rule() {
+        Rule::expr => {
+            let mut inner = pair.into_inner();
+//            println!("*** expr = {:?}", inner);
+            let mut lhs = parse_expr(inner.next().unwrap())?;
+            while let Some(op_pair) = inner.next() {
+                let rhs = parse_expr(inner.next().unwrap())?;
+                lhs = match op_pair.as_str() {
+                    "+" => Expr::Add(Box::new(lhs), Box::new(rhs)),
+                    "-" => Expr::Sub(Box::new(lhs), Box::new(rhs)),
+                    _ => return Err(parse_error(ParseErrorKind::UnexpectedToken, span)),
+                };
+            }
+            Ok(lhs)
+        }
+        Rule::mul_expr => {
+            let mut inner = pair.into_inner();
+            let mut lhs = parse_expr(inner.next().unwrap())?;
+            while let Some(rhs) = inner.next() {
+                lhs = Expr::Mul(Box::new(lhs), Box::new(parse_expr(rhs)?));
+            }
+            Ok(lhs)
+        }
+        Rule::unary_expr => {
+            let mut inner = pair.into_inner();
+            let first = inner.next().unwrap();
+            if first.as_rule() == Rule::unary_expr {
+                Ok(Expr::Neg(Box::new(parse_expr(first)?)))
+            } else {
+                parse_expr(first)
+            }
+        }
+        Rule::primary => {
+            let mut inner = pair.into_inner();
+            let child = inner.next().unwrap();
+            match child.as_rule() {
+                Rule::expr => parse_expr(child),
+                _ => parse_primary(child),
+            }
+        }
+        _ => parse_primary(pair),
     }
-    Ok(expr)
 }
 
-fn parse_term(pair: Pair<Rule>) -> Result<Expr, ParseError> {
+fn parse_primary(pair: Pair<Rule>) -> Result<Expr, ParseError> {
+    let span = pair.as_span();
     match pair.as_rule() {
         Rule::scalar => {
             let inner = pair.into_inner().next().unwrap();
-            let bytes = parse_number::<32>(&inner.as_str())?;
+//            println!("*** scalar inner {:?}", inner);
+            let bytes = parse_number::<32>(inner)?;
             Ok(Expr::Scalar(bytes))
         }
         Rule::coord1 => {
             let inner = pair.into_inner().next().unwrap();
-            let bytes = parse_number::<48>(&inner.as_str())?;
+            let bytes = parse_number::<48>(inner)?;
             Ok(Expr::Coord1(bytes))
         }
         Rule::point1 => {
             let mut inner = pair.into_inner();
-            let x = parse_coord1_arg(inner.next().unwrap())?;
-            let y = parse_coord1_arg(inner.next().unwrap())?;
+//            println!("*** point1 inner {:?}", inner);
+//            println!("+++ parse x");
+            let x = parse_number_or_ident(inner.next().unwrap())?;
+//            println!("+++ parse y");
+            let y = parse_number_or_ident(inner.next().unwrap())?;
             Ok(Expr::Point1(Box::new(x), Box::new(y)))
         }
         Rule::point1c => {
             let inner = pair.into_inner().next().unwrap();
-            let bytes = parse_number::<48>(&inner.as_str())?;
+            let bytes = parse_number::<48>(inner)?;
             Ok(Expr::Point1Compressed(bytes))
         }
         Rule::sqrt => {
             let inner = pair.into_inner().next().unwrap();
-            let arg = parse_coord1_arg(inner)?;
+            let arg = parse_expr(inner)?;
             Ok(Expr::Sqrt(Box::new(arg)))
         }
-        Rule::coord1_arg => parse_coord1_arg(pair.into_inner().next().unwrap()),
-        Rule::ident => Ok(Expr::Var(pair.as_str().to_string())),
-        Rule::number => Err(ParseError::BareNumber),
-        _ => Err(ParseError::UnexpectedToken),
+        Rule::ident => Ok(Expr::Var(parse_ident(pair)?)),
+        Rule::number => Err(parse_error(ParseErrorKind::BareNumber, span)),
+        _ => Err(parse_error(ParseErrorKind::UnexpectedToken, span)),
     }
 }
 
-fn parse_coord1_arg(pair: Pair<Rule>) -> Result<Expr, ParseError> {
+
+fn parse_number_or_ident(pair: Pair<Rule>) -> Result<Expr, ParseError> {
+//    println!("*** number_or_ident pair {:?}", pair);
+//    println!("*** number_or_ident_as_rule {:?}", pair.as_rule());
+    let span = pair.as_span();
     match pair.as_rule() {
         Rule::number => {
-            let bytes = parse_number::<48>(pair.as_str())?;
+            let bytes = parse_number::<48>(pair)?;
             Ok(Expr::Coord1(bytes))
         }
-        Rule::ident => Ok(Expr::Var(pair.as_str().to_string())),
-        _ => Err(ParseError::UnexpectedToken),
+        Rule::ident => Ok(Expr::Var(parse_ident(pair)?)),
+        _ => Err(parse_error(ParseErrorKind::UnexpectedToken, span)),
     }
 }
 
-fn parse_number<const N: usize>(s: &str) -> Result<[u8; N], ParseError> {
-    let n = if let Some(hex) = s.strip_prefix("0x") {
-        BigUint::parse_bytes(hex.as_bytes(), 16).ok_or(ParseError::InvalidNumber)?
+fn parse_ident(pair: Pair<Rule>) -> Result<String, ParseError> {
+    let span = pair.as_span();
+    let s = pair.as_str();
+    if RESERVED_WORDS.contains(&s) {
+        Err(parse_error(ParseErrorKind::ReservedWord, span))
     } else {
-        BigUint::parse_bytes(s.as_bytes(), 10).ok_or(ParseError::InvalidNumber)?
+        Ok(s.to_string())
+    }
+}
+
+
+fn parse_number<const N: usize>(pair: Pair<Rule>) -> Result<[u8; N], ParseError> {
+    let span = pair.as_span();
+    let err_invalid_number = parse_error(ParseErrorKind::InvalidNumber, span);
+    let s = pair.as_str();
+    let n = if let Some(hex) = s.strip_prefix("0x") {
+        BigUint::parse_bytes(hex.as_bytes(), 16).ok_or(err_invalid_number.clone())?
+    } else {
+        BigUint::parse_bytes(s.as_bytes(), 10).ok_or(err_invalid_number.clone())?
     };
     let bytes = n.to_bytes_be();
     if bytes.len() > N {
-        return Err(ParseError::InvalidNumber);
+        return Err(parse_error(ParseErrorKind::NumberTooLarge, span));
     }
     let mut padded = [0u8; N];
     padded[N - bytes.len()..].copy_from_slice(&bytes);
     Ok(padded)
 }
+

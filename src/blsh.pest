@@ -1,24 +1,43 @@
 WHITESPACE  = _{ " " | "\t" | "\r" | "\n" }
 
-program     = { SOI ~ statement ~ EOI }
+program     =  { SOI ~ statement ~ EOI }
 
-statement   = _{ let_stmt | command_stmt | expr }
+statement   =  { let_stmt | command_stmt | expr }
 
-let_stmt        = { "let" ~ ident ~ "=" ~ expr }
-command_stmt    = { "info" ~ expr }
+let_stmt    =  { "let" ~ ident ~ "=" ~ expr }
+command_stmt = _{ "info" ~ expr }
 
-expr        = { term ~ (bin_op ~ term)* }
-term        = _{ scalar | coord1 | point1 | point1c | sqrt | coord1_arg | ident }
+expr        =  { mul_expr ~ (add_op ~ mul_expr)* }
+add_op      =  { "+" | "-" }
 
-scalar          = { "scalar" ~ "(" ~ number ~ ")" }
-coord1          = { "coord1" ~ "(" ~ number ~ ")" }
-point1          = { "point1" ~ "(" ~ coord1_arg ~ "," ~ coord1_arg ~ ")" }
-point1c         = { "point1c" ~ "(" ~ number ~ ")" }
-sqrt            = { "sqrt" ~ "(" ~ coord1_arg ~ ")" }
+mul_expr    =  { unary_expr ~ ("*" ~ unary_expr)* }
 
-coord1_arg      = _{ number | ident }
 
-number          = @{ "0x"? ~ ASCII_HEX_DIGIT+ }
-ident           = @{ (ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_")* }
+unary_expr = { "-" ~ unary_expr | primary }
 
-bin_op          = _{ "*" | "+" | "-" }
+primary     =  {
+      scalar
+    | coord1
+    | point1
+    | point1c
+    | point2
+    | point2c
+    | sqrt
+    | ident
+    | number
+    | "(" ~ expr ~ ")"
+}
+
+scalar      =  { "scalar" ~ "(" ~ number ~ ")" }
+coord1      =  { "coord1" ~ "(" ~ number ~ ")" }
+point1      =  { "point1" ~ "(" ~ number_or_ident ~ "," ~ number_or_ident ~ ")" }
+point1c     =  { "point1c" ~ "(" ~ number ~ ")" }
+point2      =  { "point2" ~ "(" ~ number_or_ident ~ "," ~ number_or_ident ~ ")" }
+point2c     =  { "point2c" ~ "(" ~ number ~ ")" }
+sqrt        =  { "sqrt" ~ "(" ~ expr ~ ")" }
+
+number_or_ident  =  _{ number | ident }
+
+number      =  @{ "0x"? ~ ASCII_HEX_DIGIT{1,96} }
+
+ident       =  @{ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")* }

@@ -1,21 +1,19 @@
 use blst::*;
 use std::collections::HashMap;
 
-#[derive(Debug)]
-pub enum ParseError {
-    InvalidNumber,
-    InvalidCompressedPoint,
-    UnexpectedToken,
-    BareNumber,
-}
 
 #[derive(Debug)]
 pub enum EvalError {
-    InvalidExpression,
-    MismatchedOperands,
-    NotASquare,
-    InvalidCompressedPoint,
     CannotRedefineBuiltin,
+    InvalidCompressedPoint,
+    NotASquare(String),
+    TypeMismatchCoord1,
+    TypeMismatchMul,
+    TypeMismatchPoint1Add,
+    TypeMismatchPoint1Coord1,
+    TypeMismatchPoint1Neg,
+    TypeMismatchPoint1Sub,
+    UnknownIdent(String),
 }
 
 #[derive(Clone, Debug)]
@@ -27,11 +25,21 @@ pub enum Value {
     Scalar(blst_scalar),
 }
 
-
-
 impl std::fmt::Display for EvalError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self)
+        match self {
+            EvalError::CannotRedefineBuiltin => write!(f, "Cannot redefine a built-in name"),
+            EvalError::InvalidCompressedPoint => write!(f, "Invalid compressed point"),
+            EvalError::NotASquare(n) => write!(f, "No square root for {}", n),
+            EvalError::TypeMismatchCoord1 => write!(f, "Expected Coord1 operand"),
+            EvalError::TypeMismatchMul => write!(f, "Expected Scalar * Point1 or Point1 * Scalar"),
+            EvalError::TypeMismatchPoint1Add => write!(f, "Can only add Point1 operands"),
+            EvalError::TypeMismatchPoint1Coord1 => write!(f, "Can only have Coord1 coordinates when constructing Point1"),
+            EvalError::TypeMismatchPoint1Neg => write!(f, "Can only negate Point1 operands"),
+            EvalError::TypeMismatchPoint1Sub => write!(f, "Can only subtract Point1 operands"),
+            EvalError::UnknownIdent(s) => write!(f, "Unknown identifier: {}", s),
+            _ => write!(f, "{:?}", self),
+        }
     }
 }
 
@@ -71,42 +79,34 @@ impl Value {
                     hex::encode(compressed)
                 )
             }
-            _ => format!("{}", self), // Fallback
+            _ => format!("{}", self),
         }
     }
 }
 
-
-fn fp_to_hex(fp: &blst_fp) -> String {
+pub fn fp_to_hex(fp: &blst_fp) -> String {
     let mut out = [0u8; 48];
     unsafe { blst_bendian_from_fp(out.as_mut_ptr(), fp) };
     format!("0x{}", hex::encode(out))
 }
 
-fn scalar_to_hex(s: &blst_scalar) -> String {
+pub fn scalar_to_hex(s: &blst_scalar) -> String {
     let mut out = [0u8; 32];
     unsafe { blst_bendian_from_scalar(out.as_mut_ptr(), s) };
     format!("0x{}", hex::encode(out))
 }
 
-
-impl std::fmt::Display for ParseError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self)
-    }
-}
-
 pub fn builtin_env() -> HashMap<String, Value> {
     let mut env = HashMap::new();
-
-    let inf = blst_p1::default();
-    env.insert("p1inf".to_string(), Value::Point1(inf));
+    env.insert("p1inf".to_string(), Value::Point1(blst_p1::default()));
+    env.insert("p2inf".to_string(), Value::Point2(blst_p2::default()));
     let g1 = unsafe { *blst_p1_generator() };
     env.insert("g1".to_string(), Value::Point1(g1));
-
+    let g2 = unsafe { *blst_p2_generator() };
+    env.insert("g2".to_string(), Value::Point2(g2));
     env
 }
 
 pub fn is_builtin(name: &str) -> bool {
-    matches!(name, "p1inf" | "g1")
+    matches!(name, "p1inf" | "p2inf" | "g1" | "g2")
 }
