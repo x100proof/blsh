@@ -17,12 +17,10 @@ pub fn eval(expr: Expr, env: &HashMap<String, Value>) -> Result<Value, EvalError
         }
         Expr::Coord2(bytes) => {
             let mut fp2 = blst_fp2::default();
-            println!("bytes = {:?}", bytes);
             unsafe {
                 blst_fp_from_bendian(&mut fp2.fp[0], bytes.as_ptr());
                 blst_fp_from_bendian(&mut fp2.fp[1], bytes.as_ptr().byte_add(48));
             }
-            println!("fp2 = {:?}", fp2);
             Ok(Value::Coord2(fp2))
         }
         Expr::Point1(x_expr, y_expr) => {

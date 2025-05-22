@@ -11,4 +11,4 @@ Backed by Supranational's [blst](https://github.com/supranational/blst) library.
 
 - [ ] Encode Coord2 as pair. Parse it that way too.
 - [ ] Add embedding into F_p^12
-
+- [ ] Add Scalar multiplication for Point2
