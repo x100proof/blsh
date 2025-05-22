@@ -163,14 +163,15 @@ fn parse_primary(pair: Pair<Rule>) -> Result<Expr, ParseError> {
             Ok(Expr::Coord1(bytes))
         }
         Rule::coord2 => {
-            let inner = pair.into_inner().next().unwrap();
-            let bytes = parse_number::<96>(inner)?;
-            Ok(Expr::Coord2(bytes))
+        let mut inner = pair.into_inner();
+            let a_bytes = parse_number::<48>(inner.next().unwrap())?;
+            let b_bytes = parse_number::<48>(inner.next().unwrap())?;
+            Ok(Expr::Coord2(a_bytes, b_bytes))
         }
         Rule::point1 => {
             let mut inner = pair.into_inner();
-            let x = parse_coerce_coord1(inner.next().unwrap())?;
-            let y = parse_coerce_coord1(inner.next().unwrap())?;
+            let x = parse_coerce_coord1(inner.next().unwrap())?; // FIXME:: better error message
+            let y = parse_coerce_coord1(inner.next().unwrap())?; // FIXME: better error message
             Ok(Expr::Point1(Box::new(x), Box::new(y)))
         }
         Rule::point1c => {
@@ -201,8 +202,9 @@ fn parse_primary(pair: Pair<Rule>) -> Result<Expr, ParseError> {
 
 fn parse_coerce_coord1(pair: Pair<Rule>) -> Result<Expr, ParseError> {
     let span = pair.as_span();
+    // let pair = pair.into_inner().next().unwrap().clone();
     match pair.as_rule() {
-        Rule::coord2 => parse_expr(pair),
+        Rule::coord1 => parse_expr(pair),
         Rule::number => {
             let bytes = parse_number::<48>(pair)?;
             Ok(Expr::Coord1(bytes))
@@ -212,15 +214,20 @@ fn parse_coerce_coord1(pair: Pair<Rule>) -> Result<Expr, ParseError> {
     }
 }
 
-
 fn parse_coerce_coord2(pair: Pair<Rule>) -> Result<Expr, ParseError> {
     let span = pair.as_span();
     match pair.as_rule() {
         Rule::coord2 => parse_expr(pair),
-        Rule::number => {
-            let bytes = parse_number::<96>(pair)?;
-            Ok(Expr::Coord2(bytes))
-        },
+        Rule::coord2_naked_pair => {
+            let mut inner = pair.into_inner();
+            // TODO: Is the max value for a,b different in E2 than for x,y in E1? Probably...
+            let c1 = parse_coerce_coord1(inner.next().unwrap())?;
+            let c2 = parse_coerce_coord1(inner.next().unwrap())?;
+            match (c1, c2) {
+                (Expr::Coord1(a), Expr::Coord1(b)) => Ok(Expr::Coord2(a,b)),
+                _ => Err(parse_error(ParseErrorKind::UnexpectedToken, span))
+            }
+        }
         Rule::ident => Ok(Expr::Var(parse_ident(pair)?)),
         _ => Err(parse_error(ParseErrorKind::UnexpectedToken, span))
     }

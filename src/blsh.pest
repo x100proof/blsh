@@ -31,18 +31,16 @@ primary     =  {
 
 scalar      =  { "scalar" ~ "(" ~ number ~ ")" }
 coord1      =  { "coord1" ~ "(" ~ number ~ ")" }
-coord2      =  { "coord2" ~ "(" ~ number ~ ")" }
+coord2      =  { "coord2" ~ "(" ~ number ~ "," ~ number ~ ")" }
 point1      =  { "point1" ~ "(" ~ coerce_coord1 ~ "," ~ coerce_coord1 ~ ")" }
-point1c     =  { "point1c" ~ "(" ~ number ~ ")" }
 point2      =  { "point2" ~ "(" ~ coerce_coord2 ~ "," ~ coerce_coord2 ~ ")" }
+point1c     =  { "point1c" ~ "(" ~ number ~ ")" }
 point2c     =  { "point2c" ~ "(" ~ number ~ ")" }
 sqrt        =  { "sqrt" ~ "(" ~ expr ~ ")" }
 
-coerce_coord1 = _{ coord1 | number | ident }
-coerce_coord2 = _{ coord2 | number | ident }
-
-
-number_or_ident  =  _{ number | ident }
+coerce_coord1     = _{ coord1 | number | ident }
+coerce_coord2     = _{ coord2 | coord2_naked_pair | ident }
+coord2_naked_pair = { "(" ~ coerce_coord1 ~ "," ~ coerce_coord1  ~ ")" }
 
 number      =  @{ "0x"? ~ ASCII_HEX_DIGIT{1,1024} } // Better error messages if in parser if we allow long numbers
 

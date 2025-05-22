@@ -101,7 +101,7 @@ pub fn fp2_to_hex(fp2: &blst_fp2) -> String {
     let mut b = [0u8; 48];
     unsafe { blst_bendian_from_fp(a.as_mut_ptr(), &fp2.fp[0]) };
     unsafe { blst_bendian_from_fp(b.as_mut_ptr(), &fp2.fp[1]) };
-    format!("0x{} + 0x{}*i", hex::encode(a), hex::encode(b))
+    format!("(0x{},\n 0x{})", hex::encode(a), hex::encode(b))
 }
 
 

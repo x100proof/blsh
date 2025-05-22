@@ -15,11 +15,11 @@ pub fn eval(expr: Expr, env: &HashMap<String, Value>) -> Result<Value, EvalError
             unsafe { blst_fp_from_bendian(&mut fp, bytes.as_ptr()) };
             Ok(Value::Coord1(fp))
         }
-        Expr::Coord2(bytes) => {
+        Expr::Coord2(a_bytes, b_bytes) => {
             let mut fp2 = blst_fp2::default();
             unsafe {
-                blst_fp_from_bendian(&mut fp2.fp[0], bytes.as_ptr());
-                blst_fp_from_bendian(&mut fp2.fp[1], bytes.as_ptr().byte_add(48));
+                blst_fp_from_bendian(&mut fp2.fp[0], a_bytes.as_ptr());
+                blst_fp_from_bendian(&mut fp2.fp[1], b_bytes.as_ptr());
             }
             Ok(Value::Coord2(fp2))
         }

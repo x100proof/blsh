@@ -14,7 +14,7 @@ pub enum Command {
 pub enum Expr {
     Scalar([u8; 32]),
     Coord1([u8; 48]),
-    Coord2([u8; 96]),
+    Coord2([u8; 48], [u8; 48]),
     Point1(Box<Expr>, Box<Expr>),
     Point2(Box<Expr>, Box<Expr>),
     Point1Compressed([u8; 48]),
