@@ -50,12 +50,12 @@ cbc                  = _{ "]" | "}" }
 
 
 // We unconstrain hex digit length and handle error in parser for better error messages
-scalar              = { dec_or_hex ~ sep? ~ S }
+scalar              = ${ dec_or_hex ~ sep? ~ S }
 coord1              = { dec_or_hex }
-compressed_point1   = { hex_only ~ sep? ~ P1 }
-uncompressed_point1 = { hex_only ~ sep? ~ U1 }
-compressed_point2   = { hex_only ~ sep? ~ P2 }
-uncompressed_point2 = { hex_only ~ sep? ~ U2 }
+compressed_point1   = ${ hex ~ sep? ~ P1 }
+uncompressed_point1 = ${ hex ~ sep? ~ U1 }
+compressed_point2   = ${ hex ~ sep? ~ P2 }
+uncompressed_point2 = ${ hex ~ sep? ~ U2 }
 
 sep = _{ ":" | "|" }
 S =  _{ "s" }
@@ -64,9 +64,9 @@ U1 = _{ "u1" }
 P2 = _{ "p2" }
 U2 = _{ "u2" }
 
-dec_or_hex = _{ hex_only | dec }
+dec_or_hex = _{ hex | dec }
 dec        = @{ ASCII_DIGIT+ }
-hex_only   = @{ "0x" ~ ASCII_HEX_DIGIT+ }
+hex   = @{ "0x" ~ ASCII_HEX_DIGIT+ }
 
 sqrt  = { "sqrt" ~ "(" ~ expr ~ ")" }
 embed = { "embed" ~ "(" ~ expr ~ "," ~ expr ~ ")" }
