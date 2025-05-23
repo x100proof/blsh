@@ -45,7 +45,7 @@ fn main() {
                                     env.insert(name.clone(), value.clone());
                                     println!("{} = {}", name, value);
                                 }
-                                Err(e) => println!("Eval error: {}", e),
+                                Err(e) => println!("{}", e),
                             }
                         }
                         Statement::Command(cmd) => match cmd {
@@ -53,7 +53,7 @@ fn main() {
                                 Ok(val) => {
                                     println!("{}", val.describe());
                                 },
-                                Err(e) => println!("Eval error: {}", e),
+                                Err(e) => println!("{}", e),
                             },
                         }
                         Statement::Expr(expr) => match eval(expr, &env) {

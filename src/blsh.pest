@@ -15,7 +15,6 @@ mul_expr    =  { unary_expr ~ ("*" ~ unary_expr)* }
 unary_expr = { "-" ~ unary_expr | primary }
 
 primary     =  {
-    | ident
     | scalar
     | coord1
     | coord_cases
@@ -25,6 +24,7 @@ primary     =  {
     | compressed_point2
     | uncompressed_point2
     | sqrt
+    | ident
     | "(" ~ expr ~ ")"
 }
 

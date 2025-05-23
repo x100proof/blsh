@@ -58,16 +58,14 @@ pub fn eval(expr: Expr, env: &HashMap<String, Value>) -> Result<Value, EvalError
                     unsafe { blst_p2_from_affine(&mut p, &aff); }
                     Ok(Value::Point2(p))
                 }
-                _ => panic!("BEtter error: pairs can only have Coord1 or Coord2 in them")
+                _ => panic!("Better error: pairs can only have Coord1 or Coord2 in them")
             }
         }
 
         Expr::Point1Compressed(bytes) => {
             let mut aff = blst_p1_affine::default();
             let err = unsafe { blst_p1_uncompress(&mut aff, bytes.as_ptr()) };
-            if err != BLST_ERROR::BLST_SUCCESS {
-                return Err(EvalError::InvalidCompressedPoint);
-            }
+            check_deserialize_error(err)?;
             let mut p = blst_p1::default();
             unsafe { blst_p1_from_affine(&mut p, &aff); }
             Ok(Value::Point1(p))
@@ -76,9 +74,7 @@ pub fn eval(expr: Expr, env: &HashMap<String, Value>) -> Result<Value, EvalError
         Expr::Point1Uncompressed(bytes) => {
             let mut aff = blst_p1_affine::default();
             let err = unsafe { blst_p1_deserialize(&mut aff, bytes.as_ptr()) };
-            if err != BLST_ERROR::BLST_SUCCESS {
-                return Err(EvalError::InvalidCompressedPoint); // FIXME: Wrong error
-            }
+            check_deserialize_error(err)?;
             let mut p = blst_p1::default();
             unsafe { blst_p1_from_affine(&mut p, &aff); }
             Ok(Value::Point1(p))
@@ -88,9 +84,7 @@ pub fn eval(expr: Expr, env: &HashMap<String, Value>) -> Result<Value, EvalError
         Expr::Point2Compressed(bytes) => {
             let mut aff = blst_p2_affine::default();
             let err = unsafe { blst_p2_uncompress(&mut aff, bytes.as_ptr()) };
-            if err != BLST_ERROR::BLST_SUCCESS {
-                return Err(EvalError::InvalidCompressedPoint);
-            }
+            check_deserialize_error(err)?;
             let mut p = blst_p2::default();
             unsafe { blst_p2_from_affine(&mut p, &aff); }
             Ok(Value::Point2(p))
@@ -99,9 +93,7 @@ pub fn eval(expr: Expr, env: &HashMap<String, Value>) -> Result<Value, EvalError
         Expr::Point2Uncompressed(bytes) => {
             let mut aff = blst_p2_affine::default();
             let err = unsafe { blst_p2_deserialize(&mut aff, bytes.as_ptr()) };
-            if err != BLST_ERROR::BLST_SUCCESS {
-                return Err(EvalError::InvalidCompressedPoint); // FIXME: Wrong error
-            }
+            check_deserialize_error(err)?;
             let mut p = blst_p2::default();
             unsafe { blst_p2_from_affine(&mut p, &aff); }
             Ok(Value::Point2(p))
@@ -189,4 +181,15 @@ pub fn eval(expr: Expr, env: &HashMap<String, Value>) -> Result<Value, EvalError
             env.get(&name).cloned().ok_or(EvalError::UnknownIdent(name))
         }
     }
+}
+
+
+fn check_deserialize_error(err: BLST_ERROR) -> Result<(),EvalError> {
+    if err == BLST_ERROR::BLST_SUCCESS { return Ok(()); }
+    let e = match err {
+        BLST_ERROR::BLST_POINT_NOT_IN_GROUP => EvalError::PointNotInGroup,
+        BLST_ERROR::BLST_POINT_NOT_ON_CURVE => EvalError::PointNotOnCurve,
+        _ => EvalError::InvalidCompressedPoint,
+    };
+    Err(e)
 }

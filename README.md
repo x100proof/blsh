@@ -55,6 +55,9 @@ In order to make reading (and parsing!) expressions easy we use a novel literal 
 - ⋆ denotes that exactly 2× this many hex digits must be written in the literal
 - See [ZCash serialization spec](https://github.com/zkcrypto/pairing/blob/34aa52b0f7bef705917252ea63e5a13fa01af551/src/bls12_381/README.md#serialization) for uncompressed/compressed form.
 
+- **NOTE**: Compressed and uncompressed literals must be on the curve (but not necessarily in G1 or G2).
+- **NOTE** This is not true for manually constructed points with `blsh`. This can be useful for security work.
+
 ### Point literals
 
 #### Point1 literals

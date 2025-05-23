@@ -16,6 +16,7 @@ pub struct ParseError {
 #[derive(Debug, Clone)]
 pub enum ParseErrorKind {
     InvalidHex,
+    MustBeExactlyHexDigits(usize, usize),
     InvalidPrefix(Option<String>, String),
     NumberTooLarge(String),
     UnexpectedToken,
@@ -63,6 +64,9 @@ impl std::fmt::Display for ParseError {
                     None => &format!("Invalid prefix. Expecting \"{}\"", hex_pfx)
                 }
             },
+            // FIXME. Better error message based on type
+            ParseErrorKind::MustBeExactlyHexDigits(expected, actual) =>
+              &format!("Literal must be exactly {expected} hex digits long. Currently {actual} digits."),
         };
         writeln!(f, "{}\n{}", msg, clean_parse_error(&format!("{}", self.pest)))
     }
@@ -156,11 +160,11 @@ fn parse_primary(pair: Pair<Rule>) -> Result<Expr, ParseError> {
     let span = pair.as_span();
     match pair.as_rule() {
         Rule::scalar => {
-            let bytes = parse_number::<32>(pair, Some("s"), "sx")?;
+            let bytes = parse_number::<32>(pair, Some("s"), "sx", false)?;
             Ok(Expr::Scalar(bytes))
         }
         Rule::coord1 => {
-            let bytes = parse_number::<48>(pair, None, "0x")?;
+            let bytes = parse_number::<48>(pair, None, "0x", false)?;
             Ok(Expr::Coord1(bytes))
         }
         Rule::coord_pair => {
@@ -235,26 +239,22 @@ fn parse_primary(pair: Pair<Rule>) -> Result<Expr, ParseError> {
         }
 
         Rule::compressed_point1 => {
-            let mut inner = pair.into_inner();
-            let bytes = parse_number::<48>(inner.next().unwrap(),None, "p1x")?;
+            let bytes = parse_number::<48>(pair,None, "p1x", true)?;
             Ok(Expr::Point1Compressed(bytes))
         }
 
         Rule::uncompressed_point1 => {
-            let mut inner = pair.into_inner();
-            let bytes = parse_number::<96>(inner.next().unwrap(), None, "u1x")?;
+            let bytes = parse_number::<96>(pair, None, "u1x", true)?;
             Ok(Expr::Point1Uncompressed(bytes))
         }
 
         Rule::compressed_point2 => {
-            let mut inner = pair.into_inner();
-            let bytes = parse_number::<96>(inner.next().unwrap(),None, "p2x")?;
+            let bytes = parse_number::<96>(pair,None, "p2x", true)?;
             Ok(Expr::Point2Compressed(bytes))
         }
 
         Rule::uncompressed_point2 => {
-            let mut inner = pair.into_inner();
-            let bytes = parse_number::<192>(inner.next().unwrap(), None, "u2x")?;
+            let bytes = parse_number::<192>(pair, None, "u2x", true)?;
             Ok(Expr::Point2Uncompressed(bytes))
         }
 
@@ -279,7 +279,7 @@ fn parse_ident(pair: Pair<Rule>) -> Result<String, ParseError> {
     }
 }
 
-fn parse_number<const N: usize>(pair: Pair<Rule>, opt_dec_pfx: Option<&str>, hex_pfx: &str) -> Result<[u8; N], ParseError> {
+fn parse_number<const N: usize>(pair: Pair<Rule>, opt_dec_pfx: Option<&str>, hex_pfx: &str, exact_len: bool) -> Result<[u8; N], ParseError> {
     let span = pair.as_span();
     let err_invalid_number = parse_error(ParseErrorKind::InvalidHex, span);
     let s = pair.as_str();
@@ -293,6 +293,11 @@ fn parse_number<const N: usize>(pair: Pair<Rule>, opt_dec_pfx: Option<&str>, hex
         (None, Some(ss)) => Ok((ss,10)),
         (None, None) => Err(parse_error(ParseErrorKind::InvalidPrefix(opt_dec_pfx.map(|x|x.to_string()), hex_pfx.to_string()), span))
     }?;
+
+    let len = stripped.len();
+    if exact_len && len != (N*2) {
+        return Err(parse_error(ParseErrorKind::MustBeExactlyHexDigits(N*2, len), span))
+    }
 
     let n = BigUint::parse_bytes(stripped.as_bytes(), radix).ok_or(err_invalid_number.clone())?;
     let bytes = n.to_bytes_be();
