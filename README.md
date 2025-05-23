@@ -45,13 +45,14 @@ In order to make reading (and parsing!) expressions easy we use a novel literal 
 
 | Suffix          | Bytes  | Description           | Type         | Examples
 ------------------|--------|-----------------------|--------------|-----------------------
-   `:s`           | 32     |  $\in \mathbb{F}_r$   | Scalar       | `12:s`, `0xdeadbeef:s`
+   `s`           | 32     |  $\in \mathbb{F}_r$   | Scalar       | `12:s`, `0xdeadbeef:s`
                   | 48     |  $\in \mathbb{F}_p$   | Coord1       | `42`, `0xcafebabe`
-   `:p1`          | 48⋆    | compressed $\mathbb{F}_{p}$ pair     | Point1 | `0x7abc...:p1` (96  digits)
-   `:u1`          | 96⋆    | uncompressed $\mathbb{F}_{p}$ pair   | Point1 | `0x01fa...:u1` (192 digits)
-   `:p2`          | 96⋆    | compressed $\mathbb{F}_{p^2}$ pair   | Point2 | `0x70da...:p2` (192 digits)
-   `:u2`          | 192⋆   | uncompressed $\mathbb{F}_{p^2}$ pair | Point2 | `0x002c...:u2` (384 digits)
+   `p1`          | 48⋆    | compressed $\mathbb{F}_{p}$ pair     | Point1 | `0x7abc...p1` (96  digits)
+   `u1`          | 96⋆    | uncompressed $\mathbb{F}_{p}$ pair   | Point1 | `0x01fa...u1` (192 digits)
+   `p2`          | 96⋆    | compressed $\mathbb{F}_{p^2}$ pair   | Point2 | `0x70da...p2` (192 digits)
+   `u2`          | 192⋆   | uncompressed $\mathbb{F}_{p^2}$ pair | Point2 | `0x002c...u2` (384 digits)
 
+- You can optionally put a `:` or a `|` in front of the suffix to make things look cleaner e.g. `0xdeadbeef|s`
 - ⋆ denotes that exactly 2× this many hex digits must be written in the literal
 - See [ZCash serialization spec](https://github.com/zkcrypto/pairing/blob/34aa52b0f7bef705917252ea63e5a13fa01af551/src/bls12_381/README.md#serialization) for uncompressed/compressed form.
 

@@ -50,25 +50,25 @@ cbc                  = _{ "]" | "}" }
 
 
 // We unconstrain hex digit length and handle error in parser for better error messages
-scalar              = { dec_or_hex ~ S }
+scalar              = { dec_or_hex ~ sep? ~ S }
 coord1              = { dec_or_hex }
-compressed_point1   = { hex_only ~ P1 }
-uncompressed_point1 = { hex_only ~ U1 }
-compressed_point2   = { hex_only ~ P2 }
-uncompressed_point2 = { hex_only ~ U2 }
+compressed_point1   = { hex_only ~ sep? ~ P1 }
+uncompressed_point1 = { hex_only ~ sep? ~ U1 }
+compressed_point2   = { hex_only ~ sep? ~ P2 }
+uncompressed_point2 = { hex_only ~ sep? ~ U2 }
 
+sep = _{ ":" | "|" }
+S =  _{ "s" }
+P1 = _{ "p1" }
+U1 = _{ "u1" }
+P2 = _{ "p2" }
+U2 = _{ "u2" }
 
-S =  _{ ":s" }
-P1 = _{ ":p1" }
-U1 = _{ ":u1" }
-P2 = _{ ":p2" }
-U2 = _{ ":u2" }
-
-dec_or_hex = @{ "0x"? ~ ASCII_HEX_DIGIT+ }
+dec_or_hex = _{ hex_only | dec }
+dec        = @{ ASCII_DIGIT+ }
 hex_only   = @{ "0x" ~ ASCII_HEX_DIGIT+ }
 
 sqrt  = { "sqrt" ~ "(" ~ expr ~ ")" }
 embed = { "embed" ~ "(" ~ expr ~ "," ~ expr ~ ")" }
-
 
 ident       =  @{ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")* }

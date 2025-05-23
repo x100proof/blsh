@@ -46,9 +46,9 @@ impl std::fmt::Display for EvalError {
             EvalError::NotASquare(n)   => write!(f, "No square root for {}", n),
             EvalError::TypeMismatchCoord1       => write!(f, "Expected Coord1 operand"),
             EvalError::TypeMismatchMul          => write!(f, "Scalars can only be multiplied with points"),
-            EvalError::TypeMismatchPoint1Add    => write!(f, "Can only add Point1 operands"),
-            EvalError::TypeMismatchPoint1Neg    => write!(f, "Can only negate Point1 operands"),
-            EvalError::TypeMismatchPoint1Sub    => write!(f, "Can only subtract Point1 operands"),
+            EvalError::TypeMismatchPoint1Add    => write!(f, "Can only add points (of the same type)"),
+            EvalError::TypeMismatchPoint1Neg    => write!(f, "Can only negate points"),
+            EvalError::TypeMismatchPoint1Sub    => write!(f, "Can only subtract points (of the same type)"),
             EvalError::UnknownIdent(s) => write!(f, "Unknown identifier: {}", s),
         }
     }
