@@ -15,11 +15,11 @@ pub struct ParseError {
 
 #[derive(Debug, Clone)]
 pub enum ParseErrorKind {
-    InvalidNumber,
+    InvalidHex,
+    InvalidPrefix(Option<String>, String),
     NumberTooLarge(String),
     UnexpectedToken,
     ReservedWord,
-    BareNumber,
 }
 
 // Built-in identifiers are not the same as reserved words
@@ -53,11 +53,16 @@ impl std::fmt::Display for ParseError {
 
 
         let msg = match &self.kind {
-            ParseErrorKind::InvalidNumber => "Number not valid hex",
+            ParseErrorKind::InvalidHex => "Number not valid hex",
             ParseErrorKind::NumberTooLarge(hex_str) => &format!("Must be less than {}", hex_str),
             ParseErrorKind::UnexpectedToken => "Unexpected end of input or unexpected token",
             ParseErrorKind::ReservedWord => "cannot use reserved word as identifier",
-            ParseErrorKind::BareNumber => "Bare number: use a constructor like scalar(...)",
+            ParseErrorKind::InvalidPrefix(opt_dec_pfx, hex_pfx) => {
+                match opt_dec_pfx {
+                    Some(dec_pfx) => &format!("Invalid prefix. Expecting \"{}\" or \"{}\"", dec_pfx, hex_pfx),
+                    None => &format!("Invalid prefix. Expecting \"{}\"", hex_pfx)
+                }
+            },
         };
         writeln!(f, "{}\n{}", msg, clean_parse_error(&format!("{}", self.pest)))
     }
@@ -70,8 +75,6 @@ fn parse_error(kind: ParseErrorKind, span: Span) -> ParseError {
         pest: PestError::new_from_span(ErrorVariant::ParsingError { positives: vec![], negatives: vec![] }, span)
     }
 }
-
-
 
 #[derive(Parser)]
 #[grammar = "blsh.pest"]
@@ -153,83 +156,116 @@ fn parse_primary(pair: Pair<Rule>) -> Result<Expr, ParseError> {
     let span = pair.as_span();
     match pair.as_rule() {
         Rule::scalar => {
-            let inner = pair.into_inner().next().unwrap();
-            let bytes = parse_number::<32>(inner)?;
+            let bytes = parse_number::<32>(pair, Some("s"), "sx")?;
             Ok(Expr::Scalar(bytes))
         }
         Rule::coord1 => {
-            let inner = pair.into_inner().next().unwrap();
-            let bytes = parse_number::<48>(inner)?;
+            let bytes = parse_number::<48>(pair, None, "0x")?;
             Ok(Expr::Coord1(bytes))
         }
-        Rule::coord2 => {
-        let mut inner = pair.into_inner();
-            let a_bytes = parse_number::<48>(inner.next().unwrap())?;
-            let b_bytes = parse_number::<48>(inner.next().unwrap())?;
-            Ok(Expr::Coord2(a_bytes, b_bytes))
-        }
-        Rule::point1 => {
+        Rule::coord_pair => {
             let mut inner = pair.into_inner();
-            let x = parse_coerce_coord1(inner.next().unwrap())?; // FIXME:: better error message
-            let y = parse_coerce_coord1(inner.next().unwrap())?; // FIXME: better error message
-            Ok(Expr::Point1(Box::new(x), Box::new(y)))
+            let expr1 = parse_expr(inner.next().unwrap())?;
+            let expr2 = parse_expr(inner.next().unwrap())?;
+            Ok(Expr::CoordPair(Box::new(expr1), Box::new(expr2)))
         }
-        Rule::point1c => {
-            let inner = pair.into_inner().next().unwrap();
-            let bytes = parse_number::<48>(inner)?;
+        Rule::coord_triple => {
+            let mut inner = pair.into_inner();
+            let expr1 = parse_expr(inner.next().unwrap())?;
+            let expr2 = parse_expr(inner.next().unwrap())?;
+            let expr3 = parse_expr(inner.next().unwrap())?;
+            Ok(Expr::CoordTriple(Box::new(expr1), Box::new(expr2),Box::new(expr3)))
+        }
+
+        // Package it up as if it's a CoordTriple of CoordPair
+        Rule::coord_flat6 => {
+            let mut inner = pair.into_inner();
+            let expr1 = parse_expr(inner.next().unwrap())?;
+            let expr2 = parse_expr(inner.next().unwrap())?;
+            let expr3 = parse_expr(inner.next().unwrap())?;
+            let expr4 = parse_expr(inner.next().unwrap())?;
+            let expr5 = parse_expr(inner.next().unwrap())?;
+            let expr6 = parse_expr(inner.next().unwrap())?;
+            Ok(Expr::CoordTriple(
+                Box::new(Expr::CoordPair(Box::new(expr1), Box::new(expr2))),
+                Box::new(Expr::CoordPair(Box::new(expr3), Box::new(expr4))),
+                Box::new(Expr::CoordPair(Box::new(expr5), Box::new(expr6))),
+            ))
+        }
+
+        // Package it up as if it's a CoordPair of CoordTriple of CoordPair
+        Rule::coord_flat12 => {
+            let mut inner = pair.into_inner();
+            let expr01 = parse_expr(inner.next().unwrap())?;
+            let expr02 = parse_expr(inner.next().unwrap())?;
+            let expr03 = parse_expr(inner.next().unwrap())?;
+            let expr04 = parse_expr(inner.next().unwrap())?;
+            let expr05 = parse_expr(inner.next().unwrap())?;
+            let expr06 = parse_expr(inner.next().unwrap())?;
+            let expr07 = parse_expr(inner.next().unwrap())?;
+            let expr08 = parse_expr(inner.next().unwrap())?;
+            let expr09 = parse_expr(inner.next().unwrap())?;
+            let expr10 = parse_expr(inner.next().unwrap())?;
+            let expr11 = parse_expr(inner.next().unwrap())?;
+            let expr12 = parse_expr(inner.next().unwrap())?;
+
+            Ok(Expr::CoordPair(
+                Box::new(
+                    Expr::CoordTriple(
+                        Box::new(Expr::CoordPair(Box::new(expr01), Box::new(expr02))),
+                        Box::new(Expr::CoordPair(Box::new(expr03), Box::new(expr04))),
+                        Box::new(Expr::CoordPair(Box::new(expr05), Box::new(expr06))),
+                    )
+                ),
+                Box::new(
+                    Expr::CoordTriple(
+                        Box::new(Expr::CoordPair(Box::new(expr07), Box::new(expr08))),
+                        Box::new(Expr::CoordPair(Box::new(expr09), Box::new(expr10))),
+                        Box::new(Expr::CoordPair(Box::new(expr11), Box::new(expr12))),
+                    )
+                )
+            ))
+        }
+
+        Rule::point => {
+            let mut inner = pair.into_inner();
+            let expr1 = parse_expr(inner.next().unwrap())?; // FIXME: better error messagesa
+            let expr2 = parse_expr(inner.next().unwrap())?;
+            Ok(Expr::Point(Box::new(expr1), Box::new(expr2)))
+        }
+
+        Rule::compressed_point1 => {
+            let mut inner = pair.into_inner();
+            let bytes = parse_number::<48>(inner.next().unwrap(),None, "p1x")?;
             Ok(Expr::Point1Compressed(bytes))
         }
-        Rule::point2 => {
+
+        Rule::uncompressed_point1 => {
             let mut inner = pair.into_inner();
-            let x = parse_coerce_coord2(inner.next().unwrap())?;
-            let y = parse_coerce_coord2(inner.next().unwrap())?;
-            Ok(Expr::Point2(Box::new(x), Box::new(y)))        }
-        Rule::point2c => {
-            let inner = pair.into_inner().next().unwrap();
-            let bytes = parse_number::<96>(inner)?;
+            let bytes = parse_number::<96>(inner.next().unwrap(), None, "u1x")?;
+            Ok(Expr::Point1Uncompressed(bytes))
+        }
+
+        Rule::compressed_point2 => {
+            let mut inner = pair.into_inner();
+            let bytes = parse_number::<96>(inner.next().unwrap(),None, "p2x")?;
             Ok(Expr::Point2Compressed(bytes))
         }
+
+        Rule::uncompressed_point2 => {
+            let mut inner = pair.into_inner();
+            let bytes = parse_number::<192>(inner.next().unwrap(), None, "u2x")?;
+            Ok(Expr::Point2Uncompressed(bytes))
+        }
+
         Rule::sqrt => {
             let inner = pair.into_inner().next().unwrap();
             let arg = parse_expr(inner)?;
             Ok(Expr::Sqrt(Box::new(arg)))
         }
         Rule::ident => Ok(Expr::Var(parse_ident(pair)?)),
-        Rule::number => Err(parse_error(ParseErrorKind::BareNumber, span)),
+        // Rule::expr => parse_expr(pair), // seems to be handled up in parse_expr for some reason
         _ => Err(parse_error(ParseErrorKind::UnexpectedToken, span)),
-    }
-}
-
-fn parse_coerce_coord1(pair: Pair<Rule>) -> Result<Expr, ParseError> {
-    let span = pair.as_span();
-    // let pair = pair.into_inner().next().unwrap().clone();
-    match pair.as_rule() {
-        Rule::coord1 => parse_expr(pair),
-        Rule::number => {
-            let bytes = parse_number::<48>(pair)?;
-            Ok(Expr::Coord1(bytes))
-        },
-        Rule::ident => Ok(Expr::Var(parse_ident(pair)?)),
-        _ => Err(parse_error(ParseErrorKind::UnexpectedToken, span))
-    }
-}
-
-fn parse_coerce_coord2(pair: Pair<Rule>) -> Result<Expr, ParseError> {
-    let span = pair.as_span();
-    match pair.as_rule() {
-        Rule::coord2 => parse_expr(pair),
-        Rule::coord2_naked_pair => {
-            let mut inner = pair.into_inner();
-            // TODO: Is the max value for a,b different in E2 than for x,y in E1? Probably...
-            let c1 = parse_coerce_coord1(inner.next().unwrap())?;
-            let c2 = parse_coerce_coord1(inner.next().unwrap())?;
-            match (c1, c2) {
-                (Expr::Coord1(a), Expr::Coord1(b)) => Ok(Expr::Coord2(a,b)),
-                _ => Err(parse_error(ParseErrorKind::UnexpectedToken, span))
-            }
-        }
-        Rule::ident => Ok(Expr::Var(parse_ident(pair)?)),
-        _ => Err(parse_error(ParseErrorKind::UnexpectedToken, span))
     }
 }
 
@@ -243,15 +279,22 @@ fn parse_ident(pair: Pair<Rule>) -> Result<String, ParseError> {
     }
 }
 
-fn parse_number<const N: usize>(pair: Pair<Rule>) -> Result<[u8; N], ParseError> {
+fn parse_number<const N: usize>(pair: Pair<Rule>, opt_dec_pfx: Option<&str>, hex_pfx: &str) -> Result<[u8; N], ParseError> {
     let span = pair.as_span();
-    let err_invalid_number = parse_error(ParseErrorKind::InvalidNumber, span);
+    let err_invalid_number = parse_error(ParseErrorKind::InvalidHex, span);
     let s = pair.as_str();
-    let n = if let Some(hex) = s.strip_prefix("0x") {
-        BigUint::parse_bytes(hex.as_bytes(), 16).ok_or(err_invalid_number.clone())?
-    } else {
-        BigUint::parse_bytes(s.as_bytes(), 10).ok_or(err_invalid_number.clone())?
-    };
+
+    // strip the hex prefix and parse big uint
+    // if that fails strip
+
+    let dec_pfx = opt_dec_pfx.unwrap_or("");
+    let (stripped, radix)  = match (s.strip_prefix(hex_pfx), s.strip_prefix(dec_pfx)) {
+        (Some(ss), _) => Ok((ss, 16)),
+        (None, Some(ss)) => Ok((ss,10)),
+        (None, None) => Err(parse_error(ParseErrorKind::InvalidPrefix(opt_dec_pfx.map(|x|x.to_string()), hex_pfx.to_string()), span))
+    }?;
+
+    let n = BigUint::parse_bytes(stripped.as_bytes(), radix).ok_or(err_invalid_number.clone())?;
     let bytes = n.to_bytes_be();
     if bytes.len() > N {
         return Err(parse_error(ParseErrorKind::NumberTooLarge("FIXME".to_string()), span));

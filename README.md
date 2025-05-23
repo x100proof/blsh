@@ -6,16 +6,149 @@ A shell/REPL for doing BLS12-381 arithmetic.
 
 Backed by Supranational's [blst](https://github.com/supranational/blst) library.
 
+## Terminology
+
+- field modulus $p$. A large prime constructed from the following equation
+  $$
+    {1 \over 3}(x - 1)^2(x^4 - x^2 + 1) + x \text{\ \ \ \ \ \ where\ } x = \text{-0xd201000000010000}
+  $$
+- $E_1$ and $E_2$ are the two elliptic curves.
+  * $E_1 = E(\mathbb{F}_p)$
+  * $E_2 = E(\mathbb{F}_{p^2})$
+- $r$ is the large prime factor of the _order_ of E1
+  $$
+  (x^4 - x^2 + 1) \text{\ \ \ \ \  where\ } x = \text{-0xd201000000010000}
+  $$
+- $r = \text{0x73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001}$
+
+## Types
+
+This language has the following types
+
+ `blsh` type     | Description                     | In `blst`
+----------|---------------------------------|------------
+  `Scalar`  | $\in \mathbb{F}_r$                                     | `blst_scalar`
+  `Coord1`  | $\in \mathbb{F}_p$                                     | `blst_fp`
+  `Coord2`  | $(\mathbb{F}_p, \mathbb{F}_p) \in \mathbb{F}_{p^2}$    | `blst_fp2`
+  `Coord6`  | $(\mathbb{F}_{p^2}, \mathbb{F}_{p^2}, \mathbb{F}_{p^2}) \in \mathbb{F}_{p^6}$ | `blst_fp6`
+  `Coord12` | $(\mathbb{F}_{p^6}, \mathbb{F}_{p^6}) \in \mathbb{F}_{p^{12}}$                                | `blst_fp12`
+  `Point1`  | $(\mathbb{F}_p, \mathbb{F}_p) \in E_1$ | `blst_p1`
+  `Point2`  | $(\mathbb{F}_{p^2}, \mathbb{F}_{p^2}) \in E_2$ point in elliptic curve $E_2$. | `blst_p2`
+
+Just like `blst` does, we distinguish between `Coord2` and `Point1` even though they are both pairs of $\mathbb{F_{p}}$. They are semantically distinct.
+
+## Literals
+
+In order to make reading (and parsing!) expressions easy we use a novel literal representation inspired by Rust
+
+### Number literals
+
+| Prefix          | Bytes  | Description           | Type         | Examples
+------------------|--------|-----------------------|--------------|-----------------------
+  `s`, `sx`       | 32     |  $\in \mathbb{F}_r$   | Scalar       | `s12`, `sxdeadbeef`
+   _ , `0x`       | 48     |  $\in \mathbb{F}_p$   | Coord1       | `42`, `0xcafebabe`
+   `p1x`          | 48⋆    | compressed $\mathbb{F}_{p}$ pair     | Point1 | `p1x7abc...` (96  digits)
+   `u1x`          | 96⋆    | uncompressed $\mathbb{F}_{p}$ pair   | Point1 | `u1x01fa...` (192 digits)
+   `p2x`          | 96⋆    | compressed $\mathbb{F}_{p^2}$ pair   | Point2 | `p2x70da...` (192 digits)
+   `u2x`          | 192⋆   | uncompressed $\mathbb{F}_{p^2}$ pair | Point2 | `u2x002c...` (384 digits)
+
+- ⋆ denotes that exactly 2× this many hex digits must be written in the literal
+- See [ZCash serialization spec](https://github.com/zkcrypto/pairing/blob/34aa52b0f7bef705917252ea63e5a13fa01af551/src/bls12_381/README.md#serialization) for uncompressed/compressed form.
+
+### Point literals
+
+#### Point1 literals
+
+  Format               |
+-----------------------|
+ `(`Coord1`,`Coord1`)` |
+
+Examples:
+- `(0xff, 0cabd)`
+- `(1,2)`
+- `(12, 0xf1)`
+
+#### Point2 literals
+
+ Format                     |
+ ---------------------------|
+  `(` Coord2 `,` Coord2 `)` |
+
+Examples:
+
+```( p1x97f1d3a73197d7942695638c4fa9ac0fc3688c4f9774b905a14e3a3f171bac586c55e83ff97a1aeffb3af00adb22c6b ,p1x97f1d3a73197d7942695638c4fa9ac0fc3688c4f9774b905a14e3a3f171bac586c55e83ff97a1aeffb3af00adb22c6bb )
+```
+
+- `((12, 0xf1), (0x12, 42))
+
+### Coord<x> literals
+
+We use square brackets to distinguish these pairs from their elliptic curve point brethren.
+
+There are 4 types: `Coord1`, `Coord2`, `Coord6` and `Coord12`
+
+`Coord12` corresponds to $\mathbb{F}_{p^{12}}$ coordinates which are:
+- pairs of $\mathbb{F}_{p^{6}}$ coordinates, which are
+- triples of $\mathbb{F}_{p^{2}}$ coordinates, which are
+- pairs of $\mathbb{F}_p$ coordinates
+
+#### Coord2 literals
+
+Format |
+`[` Coord1 `,` Coord1 `]` |
+
+
+#### Coord6 literals
+
+**FIXME**: Talk about the grammar
+
+We provide two literal formats but they will always be printed in nested format.
+
+Format    |           |
+----------|-----------|
+Flattened |  `[`Coord1`,`Coord1`,`Coord1`,`Coord1`,`Coord1`,`Coord1`]` |
+Nested    | `[[`Coord1`,`Coord1`],[`Coord1`,`Coord1`],`Coord1`,`Coord1`]]`
+
+
+
+#### Coord12 literals
+
+**FIXME**: Talk about the grammar
+
+We provide two literal formats but they will always be printed in nested format.
+
+Format    |           |
+----------|-----------|
+Flattened |  `[`Coord1`,`Coord1`,`Coord1`,`Coord1`,`Coord1`,`Coord1`,`Coord1`,`Coord1`,`Coord1`,`Coord1`,`Coord1`,`Coord1`]` |
+Nested    | `[[[`Coord1`,`Coord1`],[`Coord1`,`Coord1`],`Coord1`,`Coord1`]],[[`Coord1`,`Coord1`],[`Coord1`,`Coord1`],`Coord1`,`Coord1`]]]`
+
+
+
+
+
 
 ## TODO
 
-- [ ] Encode Coord2 as pair. Parse it that way too.
+- [X] Encode Coord2 as pair. Parse it that way too.
+- [X] Think about adding a Point6 type
+- [ ] Make `point1(0x4, sqrt(coord1(0x44)))` parseable
+- [ ] Add equality operations
 - [ ] Add extended info for Point1 too
 - [ ] Add pretty printing library
 - [ ] Validate size of all scalars/coord1/coord2s
 - [ ] Add more scalar constants do you can do projections to torsion groups and G1/G2
 - [ ] Add embedding into F_p^12
 - [ ] Add Scalar multiplication for Point2
+- [ ] Add polynomial representation in "info" command
+- [ ] Fix this
+  ```
+  blsh> let c = sqrt(coord1(0x44))
+  c = 0x0a989badd40d6212b33cffc3f3763e9bc760f988c9926b26da9dd85e928483446346b8ed00e1de5d5ea93e354abe706c : Coord1
+  blsh> let p1 = point1(0x4, c)
+  Number not valid hex
+
+   let p1 = point1(0x4, c)
+   ```
 
 
 This [page](https://hackmd.io/@benjaminion/bls12-381) renders the G2 points as pairs, so you're on right track.

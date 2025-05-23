@@ -19,11 +19,13 @@ pub enum EvalError {
 
 #[derive(Clone, Debug)]
 pub enum Value {
+    Scalar(blst_scalar),
     Point1(blst_p1),
     Point2(blst_p2),
     Coord1(blst_fp),
     Coord2(blst_fp2),
-    Scalar(blst_scalar),
+    Coord6(blst_fp6),
+    Coord12(blst_fp12),
 }
 
 impl std::fmt::Display for EvalError {
@@ -57,9 +59,11 @@ impl std::fmt::Display for Value {
                 unsafe { blst_p2_to_affine(&mut aff, p) };
                 write!(f, "x: {}\ny: {}\n : Point2", fp2_to_hex(&aff.x), fp2_to_hex(&aff.y))
             }
-            Value::Scalar(s) => write!(f, "{} : Scalar", scalar_to_hex(s)),
-            Value::Coord1(fp) => write!(f, "{} : Coord1", fp_to_hex(fp)),
-            Value::Coord2(fp2) => write!(f, "{} : Coord2", fp2_to_hex(fp2)),
+            Value::Scalar(s)   => write!(f, "{} : Scalar", scalar_to_hex(s)),
+            Value::Coord1(fp)      => write!(f, "{} : Coord1", fp_to_hex(fp)),
+            Value::Coord2(fp2)    => write!(f, "{} : Coord2", fp2_to_hex(fp2)),
+            Value::Coord6(fp2)    => write!(f, "{} : Coord6", fp6_to_hex(fp2)),
+            Value::Coord12(fp2)  => write!(f, "{} : Coord12", fp12_to_hex(fp2)),
         }
     }
 }
@@ -101,7 +105,15 @@ pub fn fp2_to_hex(fp2: &blst_fp2) -> String {
     let mut b = [0u8; 48];
     unsafe { blst_bendian_from_fp(a.as_mut_ptr(), &fp2.fp[0]) };
     unsafe { blst_bendian_from_fp(b.as_mut_ptr(), &fp2.fp[1]) };
-    format!("(0x{},\n 0x{})", hex::encode(a), hex::encode(b))
+    format!("[0x{},\n 0x{}]", hex::encode(a), hex::encode(b))
+}
+
+pub fn fp6_to_hex(fp6: &blst_fp6) -> String {
+    format!("{{{},\n{},\n{}}},", fp2_to_hex(&fp6.fp2[0]), fp2_to_hex(&fp6.fp2[1]), fp2_to_hex(&fp6.fp2[2]))
+}
+
+pub fn fp12_to_hex(fp12: &blst_fp12) -> String {
+    format!("{{{},\n{}}},", fp6_to_hex(&fp12.fp6[0]), fp6_to_hex(&fp12.fp6[1]))
 }
 
 

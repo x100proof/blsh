@@ -60,7 +60,7 @@ fn main() {
                             Ok(result) => println!("{}", result),
                             Err(e) => println!("{}", e),
                         },
-                    },
+                    }
                     Err(e) => println!("{}", e),
                 }
             }

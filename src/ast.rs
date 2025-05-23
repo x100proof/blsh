@@ -14,11 +14,13 @@ pub enum Command {
 pub enum Expr {
     Scalar([u8; 32]),
     Coord1([u8; 48]),
-    Coord2([u8; 48], [u8; 48]),
-    Point1(Box<Expr>, Box<Expr>),
-    Point2(Box<Expr>, Box<Expr>),
+    CoordPair(Box<Expr>, Box<Expr>),
+    CoordTriple(Box<Expr>, Box<Expr>, Box<Expr>),
+    Point(Box<Expr>, Box<Expr>),
     Point1Compressed([u8; 48]),
+    Point1Uncompressed([u8;96]),
     Point2Compressed([u8; 96]),
+    Point2Uncompressed([u8;192]),
     Sqrt(Box<Expr>),
     Mul(Box<Expr>, Box<Expr>), // Point[1/2] * Scalar or Scalar * Point[1/2]
     Add(Box<Expr>, Box<Expr>), // Point[1/2] + Point[1/2]

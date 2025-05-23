@@ -5,43 +5,55 @@ program     =  { SOI ~ statement ~ EOI }
 statement   =  { let_stmt | command_stmt | expr }
 
 let_stmt    =  { "let" ~ ident ~ "=" ~ expr }
-command_stmt = _{ "info" ~ expr }
+command_stmt = { "info" ~ expr }
 
 expr        =  { mul_expr ~ (add_op ~ mul_expr)* }
 add_op      =  { "+" | "-" }
 
 mul_expr    =  { unary_expr ~ ("*" ~ unary_expr)* }
 
-
 unary_expr = { "-" ~ unary_expr | primary }
 
 primary     =  {
-      scalar
-    | coord1
-    | coord2
-    | point1
-    | point1c
-    | point2
-    | point2c
-    | sqrt
     | ident
-    | number
+    | scalar
+    | coord1
+    | coord_cases
+    | point
+    | compressed_point1
+    | uncompressed_point1
+    | compressed_point2
+    | uncompressed_point2
+    | sqrt
     | "(" ~ expr ~ ")"
 }
 
-scalar      =  { "scalar" ~ "(" ~ number ~ ")" }
-coord1      =  { "coord1" ~ "(" ~ number ~ ")" }
-coord2      =  { "coord2" ~ "(" ~ number ~ "," ~ number ~ ")" }
-point1      =  { "point1" ~ "(" ~ coerce_coord1 ~ "," ~ coerce_coord1 ~ ")" }
-point2      =  { "point2" ~ "(" ~ coerce_coord2 ~ "," ~ coerce_coord2 ~ ")" }
-point1c     =  { "point1c" ~ "(" ~ number ~ ")" }
-point2c     =  { "point2c" ~ "(" ~ number ~ ")" }
+// parse these under `parse_primary`
+coord_cases = _{ coord_pair | coord_triple | coord_flat6 | coord_flat12 }
+
+// We disambiguate between Point1 and Point2 in the parser
+point               = { "(" ~ expr ~ "," ~ expr ~ ")" }
+
+// all coord_<x> variants could be Coord1, Coord2, Coord6, or Coord12. We disambiguate in the parser
+coord_pair          = { cbo ~ expr ~ "," ~ expr ~ cbc }
+coord_triple        = { cbo ~ expr ~ "," ~ expr ~ "," ~ expr ~ cbc }
+
+coord_flat6         = { cbo ~ expr ~ "," ~ expr ~ "," ~ expr ~ "," ~ expr ~ "," ~ expr ~ "," ~ expr ~ cbc }
+coord_flat12        = { cbo ~ expr ~ "," ~ expr ~ "," ~ expr ~ "," ~ expr ~ "," ~ expr ~ "," ~ expr ~ "," ~ expr ~ "," ~ expr ~ "," ~ expr ~ "," ~ expr ~ "," ~ expr ~ "," ~ expr ~ cbc }
+
+// coord brace open & close
+cbo                  = _{ "[" | "{" }
+cbc                  = _{ "]" | "}" }
+
+
+// We unconstrain hex digit length and handle error in parser for better error messages
+scalar              = @{ "s" ~ "x"? ~ ASCII_HEX_DIGIT+ }
+coord1              = @{ "0x"? ~ ASCII_HEX_DIGIT+ }
+compressed_point1   = @{ "p1x" ~ ASCII_HEX_DIGIT+ }
+uncompressed_point1 = @{ "u1x" ~ ASCII_HEX_DIGIT+ }
+compressed_point2   = @{ "p2x" ~ ASCII_HEX_DIGIT+ }
+uncompressed_point2 = @{ "u2x" ~ ASCII_HEX_DIGIT+ }
+
 sqrt        =  { "sqrt" ~ "(" ~ expr ~ ")" }
-
-coerce_coord1     = _{ coord1 | number | ident }
-coerce_coord2     = _{ coord2 | coord2_naked_pair | ident }
-coord2_naked_pair = { "(" ~ coerce_coord1 ~ "," ~ coerce_coord1  ~ ")" }
-
-number      =  @{ "0x"? ~ ASCII_HEX_DIGIT{1,1024} } // Better error messages if in parser if we allow long numbers
 
 ident       =  @{ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")* }

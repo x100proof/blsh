@@ -15,38 +15,53 @@ pub fn eval(expr: Expr, env: &HashMap<String, Value>) -> Result<Value, EvalError
             unsafe { blst_fp_from_bendian(&mut fp, bytes.as_ptr()) };
             Ok(Value::Coord1(fp))
         }
-        Expr::Coord2(a_bytes, b_bytes) => {
-            let mut fp2 = blst_fp2::default();
-            unsafe {
-                blst_fp_from_bendian(&mut fp2.fp[0], a_bytes.as_ptr());
-                blst_fp_from_bendian(&mut fp2.fp[1], b_bytes.as_ptr());
-            }
-            Ok(Value::Coord2(fp2))
-        }
-        Expr::Point1(x_expr, y_expr) => {
-            let x = eval(*x_expr, env)?;
-            let y = eval(*y_expr, env)?;
-            if let (Value::Coord1(x_fp), Value::Coord1(y_fp)) = (x, y) {
-                let aff = blst_p1_affine { x: x_fp, y: y_fp };
-                let mut p = blst_p1::default();
-                unsafe { blst_p1_from_affine(&mut p, &aff); }
-                Ok(Value::Point1(p))
-            } else {
-                Err(EvalError::TypeMismatchPoint1Coord1)
+        Expr::CoordPair(expr1, expr2) => {
+            let v1 = eval(*expr1, env)?;
+            let v2 = eval(*expr2, env)?;
+
+            match (v1, v2) {
+                (Value::Coord1(x), Value::Coord1(y)) => {
+                    Ok(Value::Coord2(blst_fp2 { fp: [x, y] }))
+                }
+                (Value::Coord6(x), Value::Coord6(y)) => {
+                    Ok(Value::Coord12(blst_fp12 { fp6: [x, y] }))
+                }
+                _ => panic!("Better error message: pair can only have Coord1 or Coord6 in them")
             }
         }
-        Expr::Point2(x_expr, y_expr) => {
-            let x = eval(*x_expr, env)?;
-            let y = eval(*y_expr, env)?;
-            if let (Value::Coord2(x_fp2), Value::Coord2(y_fp2)) = (x, y) {
-                let aff = blst_p2_affine { x: x_fp2, y: y_fp2 };
-                let mut p = blst_p2::default();
-                unsafe { blst_p2_from_affine(&mut p, &aff); }
-                Ok(Value::Point2(p))
-            } else {
-                Err(EvalError::TypeMismatchPoint2Coord2)
+        Expr::CoordTriple(expr1, expr2, expr3) => {
+            let v1 = eval(*expr1, env)?;
+            let v2 = eval(*expr2, env)?;
+            let v3 = eval(*expr3, env)?;
+
+            match (v1, v2, v3) {
+                (Value::Coord2(x), Value::Coord2(y), Value::Coord2(z)) => {
+                    Ok(Value::Coord6(blst_fp6 { fp2: [x, y, z] }))
+                }
+                _ => panic!("Better error message: triple can only have Coord2s in it")
             }
         }
+
+        Expr::Point(expr1, expr2) => {
+            let v1 = eval(*expr1, env)?;
+            let v2 = eval(*expr2, env)?;
+            match (v1,v2) {
+                (Value::Coord1(x), Value::Coord1(y)) => {
+                    let aff = blst_p1_affine { x: x, y: y };
+                    let mut p = blst_p1::default();
+                    unsafe { blst_p1_from_affine(&mut p, &aff); }
+                    Ok(Value::Point1(p))
+                }
+                (Value::Coord2(x), Value::Coord2(y)) => {
+                    let aff = blst_p2_affine { x: x, y: y };
+                    let mut p = blst_p2::default();
+                    unsafe { blst_p2_from_affine(&mut p, &aff); }
+                    Ok(Value::Point2(p))
+                }
+                _ => panic!("BEtter error: pairs can only have Coord1 or Coord2 in them")
+            }
+        }
+
         Expr::Point1Compressed(bytes) => {
             let mut aff = blst_p1_affine::default();
             let err = unsafe { blst_p1_uncompress(&mut aff, bytes.as_ptr()) };
@@ -57,6 +72,19 @@ pub fn eval(expr: Expr, env: &HashMap<String, Value>) -> Result<Value, EvalError
             unsafe { blst_p1_from_affine(&mut p, &aff); }
             Ok(Value::Point1(p))
         }
+
+        Expr::Point1Uncompressed(bytes) => {
+            let mut aff = blst_p1_affine::default();
+            let err = unsafe { blst_p1_deserialize(&mut aff, bytes.as_ptr()) };
+            if err != BLST_ERROR::BLST_SUCCESS {
+                return Err(EvalError::InvalidCompressedPoint); // FIXME: Wrong error
+            }
+            let mut p = blst_p1::default();
+            unsafe { blst_p1_from_affine(&mut p, &aff); }
+            Ok(Value::Point1(p))
+        }
+
+
         Expr::Point2Compressed(bytes) => {
             let mut aff = blst_p2_affine::default();
             let err = unsafe { blst_p2_uncompress(&mut aff, bytes.as_ptr()) };
@@ -67,6 +95,18 @@ pub fn eval(expr: Expr, env: &HashMap<String, Value>) -> Result<Value, EvalError
             unsafe { blst_p2_from_affine(&mut p, &aff); }
             Ok(Value::Point2(p))
         }
+
+        Expr::Point2Uncompressed(bytes) => {
+            let mut aff = blst_p2_affine::default();
+            let err = unsafe { blst_p2_deserialize(&mut aff, bytes.as_ptr()) };
+            if err != BLST_ERROR::BLST_SUCCESS {
+                return Err(EvalError::InvalidCompressedPoint); // FIXME: Wrong error
+            }
+            let mut p = blst_p2::default();
+            unsafe { blst_p2_from_affine(&mut p, &aff); }
+            Ok(Value::Point2(p))
+        }
+
         Expr::Sqrt(inner) => {
             let v = eval(*inner, env)?;
             let coord = match v {
@@ -81,6 +121,7 @@ pub fn eval(expr: Expr, env: &HashMap<String, Value>) -> Result<Value, EvalError
                 Err(EvalError::NotASquare(fp_to_hex(&coord)))
             }
         }
+
         Expr::Mul(lhs, rhs) => {
             let l = eval(*lhs, env)?;
             let r = eval(*rhs, env)?;
@@ -93,6 +134,7 @@ pub fn eval(expr: Expr, env: &HashMap<String, Value>) -> Result<Value, EvalError
                 _ => Err(EvalError::TypeMismatchMul),
             }
         }
+
         Expr::Add(lhs, rhs) => {
             let l = eval(*lhs, env)?;
             let r = eval(*rhs, env)?;
