@@ -43,14 +43,14 @@ In order to make reading (and parsing!) expressions easy we use a novel literal 
 
 ### Number literals
 
-| Prefix          | Bytes  | Description           | Type         | Examples
+| Suffix          | Bytes  | Description           | Type         | Examples
 ------------------|--------|-----------------------|--------------|-----------------------
-  `s`, `sx`       | 32     |  $\in \mathbb{F}_r$   | Scalar       | `s12`, `sxdeadbeef`
-   _ , `0x`       | 48     |  $\in \mathbb{F}_p$   | Coord1       | `42`, `0xcafebabe`
-   `p1x`          | 48⋆    | compressed $\mathbb{F}_{p}$ pair     | Point1 | `p1x7abc...` (96  digits)
-   `u1x`          | 96⋆    | uncompressed $\mathbb{F}_{p}$ pair   | Point1 | `u1x01fa...` (192 digits)
-   `p2x`          | 96⋆    | compressed $\mathbb{F}_{p^2}$ pair   | Point2 | `p2x70da...` (192 digits)
-   `u2x`          | 192⋆   | uncompressed $\mathbb{F}_{p^2}$ pair | Point2 | `u2x002c...` (384 digits)
+   `:s`           | 32     |  $\in \mathbb{F}_r$   | Scalar       | `12:s`, `0xdeadbeef:s`
+                  | 48     |  $\in \mathbb{F}_p$   | Coord1       | `42`, `0xcafebabe`
+   `:p1`          | 48⋆    | compressed $\mathbb{F}_{p}$ pair     | Point1 | `0x7abc...:p1` (96  digits)
+   `:u1`          | 96⋆    | uncompressed $\mathbb{F}_{p}$ pair   | Point1 | `0x01fa...:u1` (192 digits)
+   `:p2`          | 96⋆    | compressed $\mathbb{F}_{p^2}$ pair   | Point2 | `0x70da...:p2` (192 digits)
+   `:u2`          | 192⋆   | uncompressed $\mathbb{F}_{p^2}$ pair | Point2 | `0x002c...:u2` (384 digits)
 
 - ⋆ denotes that exactly 2× this many hex digits must be written in the literal
 - See [ZCash serialization spec](https://github.com/zkcrypto/pairing/blob/34aa52b0f7bef705917252ea63e5a13fa01af551/src/bls12_381/README.md#serialization) for uncompressed/compressed form.

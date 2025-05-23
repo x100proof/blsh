@@ -5,6 +5,7 @@ use std::collections::HashMap;
 #[derive(Debug)]
 pub enum EvalError {
     CannotRedefineBuiltin,
+    EmbedHasIncorrectTypes,
     PointNotOnCurve,
     PointNotInGroup,
     PointCanOnlyContainCoord, // FIXME: Show what types were in it
@@ -15,10 +16,8 @@ pub enum EvalError {
     TypeMismatchCoord1,
     TypeMismatchMul,
     TypeMismatchPoint1Add,
-    TypeMismatchPoint1Coord1,
     TypeMismatchPoint1Neg,
     TypeMismatchPoint1Sub,
-    TypeMismatchPoint2Coord2,
     UnknownIdent(String),
 }
 
@@ -37,6 +36,7 @@ impl std::fmt::Display for EvalError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             EvalError::CannotRedefineBuiltin    => write!(f, "Cannot redefine a built-in name"),
+            EvalError::EmbedHasIncorrectTypes   => write!(f, "Can only call `embed(x,y)` if x: Point1 and y: Point2"),
             EvalError::InvalidCompressedPoint   => write!(f, "Invalid compressed point"),
             EvalError::PointNotOnCurve          => write!(f, "Point is not on curve"), // FIXME: Make Point1 and Point2 specific
             EvalError::PointNotInGroup          => write!(f, "Point is not in group"), // FIXME: Make Point1 and Point2 specific G1 vs G2
@@ -45,12 +45,10 @@ impl std::fmt::Display for EvalError {
             EvalError::TripleCanOnlyContainCoord2 => write!(f, "Coordinate triples can only contain Coord2 values"),
             EvalError::NotASquare(n)   => write!(f, "No square root for {}", n),
             EvalError::TypeMismatchCoord1       => write!(f, "Expected Coord1 operand"),
-            EvalError::TypeMismatchMul          => write!(f, "Expected Scalar * Point1 or Point1 * Scalar"),
+            EvalError::TypeMismatchMul          => write!(f, "Scalars can only be multiplied with points"),
             EvalError::TypeMismatchPoint1Add    => write!(f, "Can only add Point1 operands"),
-            EvalError::TypeMismatchPoint1Coord1 => write!(f, "Can only have Coord1 coordinates when constructing Point1"),
             EvalError::TypeMismatchPoint1Neg    => write!(f, "Can only negate Point1 operands"),
             EvalError::TypeMismatchPoint1Sub    => write!(f, "Can only subtract Point1 operands"),
-            EvalError::TypeMismatchPoint2Coord2 => write!(f, "Can only have Coord2 coordinates when constructing Point2"),
             EvalError::UnknownIdent(s) => write!(f, "Unknown identifier: {}", s),
         }
     }

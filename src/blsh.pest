@@ -14,22 +14,25 @@ mul_expr    =  { unary_expr ~ ("*" ~ unary_expr)* }
 
 unary_expr = { "-" ~ unary_expr | primary }
 
+// Order is important here.
+// Put all rules for "reserved words" first
 primary     =  {
-    | scalar
-    | coord1
-    | coord_cases
+    | sqrt
+    | embed
     | point
     | compressed_point1
     | uncompressed_point1
     | compressed_point2
     | uncompressed_point2
-    | sqrt
+    | scalar
+    | coord1
+    | coord_pair
+    | coord_triple
+    | coord_flat6
+    | coord_flat12
     | ident
     | "(" ~ expr ~ ")"
 }
-
-// parse these under `parse_primary`
-coord_cases = _{ coord_pair | coord_triple | coord_flat6 | coord_flat12 }
 
 // We disambiguate between Point1 and Point2 in the parser
 point               = { "(" ~ expr ~ "," ~ expr ~ ")" }
@@ -47,13 +50,25 @@ cbc                  = _{ "]" | "}" }
 
 
 // We unconstrain hex digit length and handle error in parser for better error messages
-scalar              = @{ "s" ~ "x"? ~ ASCII_HEX_DIGIT+ }
-coord1              = @{ "0x"? ~ ASCII_HEX_DIGIT+ }
-compressed_point1   = @{ "p1x" ~ ASCII_HEX_DIGIT+ }
-uncompressed_point1 = @{ "u1x" ~ ASCII_HEX_DIGIT+ }
-compressed_point2   = @{ "p2x" ~ ASCII_HEX_DIGIT+ }
-uncompressed_point2 = @{ "u2x" ~ ASCII_HEX_DIGIT+ }
+scalar              = { dec_or_hex ~ S }
+coord1              = { dec_or_hex }
+compressed_point1   = { hex_only ~ P1 }
+uncompressed_point1 = { hex_only ~ U1 }
+compressed_point2   = { hex_only ~ P2 }
+uncompressed_point2 = { hex_only ~ U2 }
 
-sqrt        =  { "sqrt" ~ "(" ~ expr ~ ")" }
+
+S =  _{ ":s" }
+P1 = _{ ":p1" }
+U1 = _{ ":u1" }
+P2 = _{ ":p2" }
+U2 = _{ ":u2" }
+
+dec_or_hex = @{ "0x"? ~ ASCII_HEX_DIGIT+ }
+hex_only   = @{ "0x" ~ ASCII_HEX_DIGIT+ }
+
+sqrt  = { "sqrt" ~ "(" ~ expr ~ ")" }
+embed = { "embed" ~ "(" ~ expr ~ "," ~ expr ~ ")" }
+
 
 ident       =  @{ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")* }

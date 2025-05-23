@@ -99,6 +99,26 @@ pub fn eval(expr: Expr, env: &HashMap<String, Value>) -> Result<Value, EvalError
             Ok(Value::Point2(p))
         }
 
+        Expr::Embed(expr1, expr2) => {
+            let v1 = eval(*expr1, env)?;
+            let v2 = eval(*expr2, env)?;
+            match (v1, v2) {
+                (Value::Point1(p1), Value::Point2(p2)) => {
+                    let mut fp12 = blst_fp12::default();
+                    let mut aff1 = blst_p1_affine::default();
+                    let mut aff2 = blst_p2_affine::default();
+                    unsafe {
+                        blst_p1_to_affine(&mut aff1, &p1);
+                        blst_p2_to_affine(&mut aff2, &p2);
+                        blst_miller_loop(&mut fp12, &aff2, &aff1);
+                        blst_final_exp(&mut fp12, &fp12);
+                    }
+                    Ok(Value::Coord12(fp12))
+                }
+                _ => Err(EvalError::EmbedHasIncorrectTypes)
+            }
+        }
+
         Expr::Sqrt(inner) => {
             let v = eval(*inner, env)?;
             let coord = match v {
@@ -122,6 +142,11 @@ pub fn eval(expr: Expr, env: &HashMap<String, Value>) -> Result<Value, EvalError
                     let mut result = blst_p1::default();
                     unsafe { blst_p1_mult(&mut result, &p, s.b.as_ptr(), 256); }
                     Ok(Value::Point1(result))
+                }
+                (Value::Point2(p), Value::Scalar(s)) | (Value::Scalar(s), Value::Point2(p)) => {
+                    let mut result = blst_p2::default();
+                    unsafe { blst_p2_mult(&mut result, &p, s.b.as_ptr(), 256); }
+                    Ok(Value::Point2(result))
                 }
                 _ => Err(EvalError::TypeMismatchMul),
             }

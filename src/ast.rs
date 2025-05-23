@@ -21,6 +21,7 @@ pub enum Expr {
     Point1Uncompressed([u8;96]),
     Point2Compressed([u8; 96]),
     Point2Uncompressed([u8;192]),
+    Embed(Box<Expr>, Box<Expr>),
     Sqrt(Box<Expr>),
     Mul(Box<Expr>, Box<Expr>), // Point[1/2] * Scalar or Scalar * Point[1/2]
     Add(Box<Expr>, Box<Expr>), // Point[1/2] + Point[1/2]

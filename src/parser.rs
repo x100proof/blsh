@@ -17,15 +17,16 @@ pub struct ParseError {
 pub enum ParseErrorKind {
     InvalidHex,
     MustBeExactlyHexDigits(usize, usize),
-    InvalidPrefix(Option<String>, String),
     NumberTooLarge(String),
     UnexpectedToken,
     ReservedWord,
+    CannotBeDecimal,
+
 }
 
 // Built-in identifiers are not the same as reserved words
 const RESERVED_WORDS: &[&str] = &[
-    "let", "info", "sqrt", "point1", "point2", "coord1", "coord2", "scalar",
+    "let", "info", "sqrt", "point1", "point2", "coord1", "coord2", "scalar", "embed",
 ];
 
 
@@ -58,12 +59,7 @@ impl std::fmt::Display for ParseError {
             ParseErrorKind::NumberTooLarge(hex_str) => &format!("Must be less than {}", hex_str),
             ParseErrorKind::UnexpectedToken => "Unexpected end of input or unexpected token",
             ParseErrorKind::ReservedWord => "cannot use reserved word as identifier",
-            ParseErrorKind::InvalidPrefix(opt_dec_pfx, hex_pfx) => {
-                match opt_dec_pfx {
-                    Some(dec_pfx) => &format!("Invalid prefix. Expecting \"{}\" or \"{}\"", dec_pfx, hex_pfx),
-                    None => &format!("Invalid prefix. Expecting \"{}\"", hex_pfx)
-                }
-            },
+            ParseErrorKind::CannotBeDecimal => &format!("Literal cannot be decimal"),
             // FIXME. Better error message based on type
             ParseErrorKind::MustBeExactlyHexDigits(expected, actual) =>
               &format!("Literal must be exactly {expected} hex digits long. Currently {actual} digits."),
@@ -160,11 +156,13 @@ fn parse_primary(pair: Pair<Rule>) -> Result<Expr, ParseError> {
     let span = pair.as_span();
     match pair.as_rule() {
         Rule::scalar => {
-            let bytes = parse_number::<32>(pair, Some("s"), "sx", false)?;
+            let inner_pair = pair.into_inner().next().unwrap();
+            let bytes = parse_number::<32>(inner_pair,  true, false)?;
             Ok(Expr::Scalar(bytes))
         }
         Rule::coord1 => {
-            let bytes = parse_number::<48>(pair, None, "0x", false)?;
+            let inner_pair = pair.into_inner().next().unwrap();
+            let bytes = parse_number::<48>(inner_pair, true, false)?;
             Ok(Expr::Coord1(bytes))
         }
         Rule::coord_pair => {
@@ -239,22 +237,26 @@ fn parse_primary(pair: Pair<Rule>) -> Result<Expr, ParseError> {
         }
 
         Rule::compressed_point1 => {
-            let bytes = parse_number::<48>(pair,None, "p1x", true)?;
+            let inner_pair = pair.into_inner().next().unwrap();
+            let bytes = parse_number::<48>(inner_pair, false,  true)?;
             Ok(Expr::Point1Compressed(bytes))
         }
 
         Rule::uncompressed_point1 => {
-            let bytes = parse_number::<96>(pair, None, "u1x", true)?;
+            let inner_pair = pair.into_inner().next().unwrap();
+            let bytes = parse_number::<96>(inner_pair, false, true)?;
             Ok(Expr::Point1Uncompressed(bytes))
         }
 
         Rule::compressed_point2 => {
-            let bytes = parse_number::<96>(pair,None, "p2x", true)?;
+            let inner_pair = pair.into_inner().next().unwrap();
+            let bytes = parse_number::<96>(inner_pair, false, true)?;
             Ok(Expr::Point2Compressed(bytes))
         }
 
         Rule::uncompressed_point2 => {
-            let bytes = parse_number::<192>(pair, None, "u2x", true)?;
+            let inner_pair = pair.into_inner().next().unwrap();
+            let bytes = parse_number::<192>(inner_pair,  false, true)?;
             Ok(Expr::Point2Uncompressed(bytes))
         }
 
@@ -263,6 +265,14 @@ fn parse_primary(pair: Pair<Rule>) -> Result<Expr, ParseError> {
             let arg = parse_expr(inner)?;
             Ok(Expr::Sqrt(Box::new(arg)))
         }
+
+        Rule::embed => {
+            let mut inner = pair.into_inner();
+            let p1 = parse_expr(inner.next().unwrap())?;
+            let p2 = parse_expr(inner.next().unwrap())?;
+            Ok(Expr::Embed(Box::new(p1), Box::new(p2)))
+        }
+
         Rule::ident => Ok(Expr::Var(parse_ident(pair)?)),
         // Rule::expr => parse_expr(pair), // seems to be handled up in parse_expr for some reason
         _ => Err(parse_error(ParseErrorKind::UnexpectedToken, span)),
@@ -279,19 +289,15 @@ fn parse_ident(pair: Pair<Rule>) -> Result<String, ParseError> {
     }
 }
 
-fn parse_number<const N: usize>(pair: Pair<Rule>, opt_dec_pfx: Option<&str>, hex_pfx: &str, exact_len: bool) -> Result<[u8; N], ParseError> {
+fn parse_number<const N: usize>(pair: Pair<Rule>, can_be_decimal: bool, exact_len: bool) -> Result<[u8; N], ParseError> {
     let span = pair.as_span();
     let err_invalid_number = parse_error(ParseErrorKind::InvalidHex, span);
-    let s = pair.as_str();
+    let s0 = pair.as_str();
 
-    // strip the hex prefix and parse big uint
-    // if that fails strip
-
-    let dec_pfx = opt_dec_pfx.unwrap_or("");
-    let (stripped, radix)  = match (s.strip_prefix(hex_pfx), s.strip_prefix(dec_pfx)) {
+    let (stripped, radix)  = match (s0.strip_prefix("0x"), can_be_decimal) {
         (Some(ss), _) => Ok((ss, 16)),
-        (None, Some(ss)) => Ok((ss,10)),
-        (None, None) => Err(parse_error(ParseErrorKind::InvalidPrefix(opt_dec_pfx.map(|x|x.to_string()), hex_pfx.to_string()), span))
+        (None, true)  => Ok((s0, 10)),
+        (None, false) => Err(parse_error(ParseErrorKind::CannotBeDecimal, span)),
     }?;
 
     let len = stripped.len();
