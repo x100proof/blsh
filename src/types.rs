@@ -7,6 +7,9 @@ pub enum EvalError {
     CannotRedefineBuiltin,
     PointNotOnCurve,
     PointNotInGroup,
+    PointCanOnlyContainCoord, // FIXME: Show what types were in it
+    PairCanOnlyContainCoord1Or6,
+    TripleCanOnlyContainCoord2,
     InvalidCompressedPoint,
     NotASquare(String),
     TypeMismatchCoord1,
@@ -37,6 +40,9 @@ impl std::fmt::Display for EvalError {
             EvalError::InvalidCompressedPoint   => write!(f, "Invalid compressed point"),
             EvalError::PointNotOnCurve          => write!(f, "Point is not on curve"), // FIXME: Make Point1 and Point2 specific
             EvalError::PointNotInGroup          => write!(f, "Point is not in group"), // FIXME: Make Point1 and Point2 specific G1 vs G2
+            EvalError::PointCanOnlyContainCoord => write!(f, "Points can only contain Coord1/Coord2 values in them"),
+            EvalError::PairCanOnlyContainCoord1Or6 => write!(f, "Coordinate pairs can only contain Coord1 or Coord6 values"),
+            EvalError::TripleCanOnlyContainCoord2 => write!(f, "Coordinate triples can only contain Coord2 values"),
             EvalError::NotASquare(n)   => write!(f, "No square root for {}", n),
             EvalError::TypeMismatchCoord1       => write!(f, "Expected Coord1 operand"),
             EvalError::TypeMismatchMul          => write!(f, "Expected Scalar * Point1 or Point1 * Scalar"),

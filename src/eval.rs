@@ -26,7 +26,7 @@ pub fn eval(expr: Expr, env: &HashMap<String, Value>) -> Result<Value, EvalError
                 (Value::Coord6(x), Value::Coord6(y)) => {
                     Ok(Value::Coord12(blst_fp12 { fp6: [x, y] }))
                 }
-                _ => panic!("Better error message: pair can only have Coord1 or Coord6 in them")
+                _ => Err(EvalError::PairCanOnlyContainCoord1Or6)
             }
         }
         Expr::CoordTriple(expr1, expr2, expr3) => {
@@ -38,7 +38,7 @@ pub fn eval(expr: Expr, env: &HashMap<String, Value>) -> Result<Value, EvalError
                 (Value::Coord2(x), Value::Coord2(y), Value::Coord2(z)) => {
                     Ok(Value::Coord6(blst_fp6 { fp2: [x, y, z] }))
                 }
-                _ => panic!("Better error message: triple can only have Coord2s in it")
+                _ => Err(EvalError::TripleCanOnlyContainCoord2)
             }
         }
 
@@ -58,7 +58,7 @@ pub fn eval(expr: Expr, env: &HashMap<String, Value>) -> Result<Value, EvalError
                     unsafe { blst_p2_from_affine(&mut p, &aff); }
                     Ok(Value::Point2(p))
                 }
-                _ => panic!("Better error: pairs can only have Coord1 or Coord2 in them")
+                _ => Err(EvalError::PointCanOnlyContainCoord)
             }
         }
 
