@@ -53,7 +53,6 @@ impl std::fmt::Display for ParseError {
                 .join("\n")
         }
 
-
         let msg = match &self.kind {
             ParseErrorKind::InvalidHex => "Number not valid hex",
             ParseErrorKind::NumberTooLarge(hex_str) => &format!("Must be less than {}", hex_str),

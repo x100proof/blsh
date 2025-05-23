@@ -135,24 +135,16 @@ Nested    | `[[[`Coord1`,`Coord1`],[`Coord1`,`Coord1`],`Coord1`,`Coord1`]],[[`Co
 
 - [X] Encode Coord2 as pair. Parse it that way too.
 - [X] Think about adding a Point6 type
-- [ ] Make `point1(0x4, sqrt(coord1(0x44)))` parseable
+- [X] Make `point1(0x4, sqrt(coord1(0x44)))` parseable
+- [ ] Add scalar arithmetic (even though not supported by `blst`)
 - [ ] Add equality operations
-- [ ] Add extended info for Point1 too
+- [x] Add extended info for Point1 too
 - [ ] Add pretty printing library
 - [ ] Validate size of all scalars/coord1/coord2s
 - [ ] Add more scalar constants do you can do projections to torsion groups and G1/G2
-- [ ] Add embedding into F_p^12
-- [ ] Add Scalar multiplication for Point2
+- [x] Add embedding into F_p^12
+- [x] Add Scalar multiplication for Point2
 - [ ] Add polynomial representation in "info" command
-- [ ] Fix this
-  ```
-  blsh> let c = sqrt(coord1(0x44))
-  c = 0x0a989badd40d6212b33cffc3f3763e9bc760f988c9926b26da9dd85e928483446346b8ed00e1de5d5ea93e354abe706c : Coord1
-  blsh> let p1 = point1(0x4, c)
-  Number not valid hex
-
-   let p1 = point1(0x4, c)
-   ```
 
 
 This [page](https://hackmd.io/@benjaminion/bls12-381) renders the G2 points as pairs, so you're on right track.
