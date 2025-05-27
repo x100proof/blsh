@@ -88,7 +88,7 @@ impl Value {
                 let in_g1 = unsafe { blst_p1_in_g1(p) };
                 let is_inf = unsafe { blst_p1_is_inf(p) };
                 format!(
-                    "{}\n: Point1\nOn curve: {}\nIn G1: {}\nInfinity: {}\nCompressed: 0x{}",
+                    "{}\n: Point1\nOn curve: {}\nIn G1:    {}\nInfinity: {}\nCompressed: 0x{}",
                     format!("{}", self),
                     on_curve,
                     in_g1,
@@ -105,7 +105,7 @@ impl Value {
                 let in_g2 = unsafe { blst_p2_in_g2(p) };
                 let is_inf = unsafe { blst_p2_is_inf(p) };
                 format!(
-                    "{}\nPoint2\nOn curve: {}\nIn G2: {}\nInfinity: {}\nCompressed: 0x{}",
+                    "{}\nPoint2\nOn curve: {}\nIn G2:    {}\nInfinity: {}\nCompressed: 0x{}",
                     format!("{}", self),
                     on_curve,
                     in_g2,
