@@ -1,5 +1,8 @@
 use blst::*;
 use std::collections::HashMap;
+use pprint::{Doc, Printer, Wrap, concat, Indent, Group};
+use pprint::Doc::{Softline};
+
 
 
 #[derive(Debug)]
@@ -32,6 +35,29 @@ pub enum Value {
     Coord12(blst_fp12),
 }
 
+
+
+pub fn pretty_pair(x: &blst_fp, y: &blst_fp) -> Doc<'static> {
+    let x_hex = fp_to_hex(x);
+    let y_hex = fp_to_hex(y);
+    (Doc::from(x_hex) +  Softline +  Doc::from(", ") + Doc::from(y_hex)).wrap("( ", " )")
+}
+
+pub fn pretty_point1(p: &blst_p1) -> Doc<'static> {
+    let mut aff = blst_p1_affine::default();
+    unsafe { blst_p1_to_affine(&mut aff, p) };
+    pretty_pair(&aff.x, &aff.y)
+}
+
+pub fn pretty_point2(p: &blst_p2) -> Doc<'static> {
+    let mut aff = blst_p2_affine::default();
+    unsafe { blst_p2_to_affine(&mut aff, p) };
+    let a_doc = pretty_pair(&aff.x.fp[0], &aff.x.fp[1]);
+    let b_doc = pretty_pair(&aff.y.fp[0], &aff.y.fp[1]);
+    (a_doc.indent() +  Softline + Doc::from(", ") + b_doc.indent()).wrap("( ", " )")
+}
+
+
 impl std::fmt::Display for EvalError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -56,23 +82,21 @@ impl std::fmt::Display for EvalError {
 
 impl std::fmt::Display for Value {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
+        let printer = Printer::new(80, 2, true, false);
+        let doc = match self {
             Value::Point1(p) => {
-                let mut aff = blst_p1_affine::default();
-                unsafe { blst_p1_to_affine(&mut aff, p) };
-                write!(f, "x: {}\ny: {}\n : Point1", fp_to_hex(&aff.x), fp_to_hex(&aff.y))
+                pretty_point1(p) + Softline + Doc::from(": Point1")
             }
             Value::Point2(p) => {
-                let mut aff = blst_p2_affine::default();
-                unsafe { blst_p2_to_affine(&mut aff, p) };
-                write!(f, "x: {}\ny: {}\n : Point2", fp2_to_hex(&aff.x), fp2_to_hex(&aff.y))
+                pretty_point2(p) + Softline + Doc::from(": Point2")
             }
-            Value::Scalar(s)   => write!(f, "{} : Scalar", scalar_to_hex(s)),
-            Value::Coord1(fp)      => write!(f, "{} : Coord1", fp_to_hex(fp)),
-            Value::Coord2(fp2)    => write!(f, "{} : Coord2", fp2_to_hex(fp2)),
-            Value::Coord6(fp2)    => write!(f, "{} : Coord6", fp6_to_hex(fp2)),
-            Value::Coord12(fp2)  => write!(f, "{} : Coord12", fp12_to_hex(fp2)),
-        }
+            Value::Scalar(s) => Doc::from(format!("{} : Scalar", scalar_to_hex(s))),
+            Value::Coord1(fp) => Doc::from(format!("{} : Coord1", fp_to_hex(fp))),
+            Value::Coord2(fp2) => Doc::from(format!("{} : Coord2", fp2_to_hex(fp2))),
+            Value::Coord6(fp2) => Doc::from(format!("{} : Coord6", fp6_to_hex(fp2))),
+            Value::Coord12(fp2) => Doc::from(format!("{} : Coord12", fp12_to_hex(fp2))),
+        };
+        write!(f, "{}", printer.pprint(doc))
     }
 }
 
