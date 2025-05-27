@@ -88,17 +88,36 @@ impl Value {
                 let in_g1 = unsafe { blst_p1_in_g1(p) };
                 let is_inf = unsafe { blst_p1_is_inf(p) };
                 format!(
-                    "x: {}\ny: {}\n: Point1\nOn curve: {}\nIn G1: {}\nInfinity: {}\nCompressed: 0x{}",
-                    fp_to_hex(&aff.x),
-                    fp_to_hex(&aff.y),
+                    "{}\n: Point1\nOn curve: {}\nIn G1: {}\nInfinity: {}\nCompressed: 0x{}",
+                    format!("{}", self),
                     on_curve,
                     in_g1,
                     is_inf,
                     hex::encode(compressed)
                 )
             }
+            Value::Point2(p) => {
+                let mut aff = blst_p2_affine::default();
+                unsafe { blst_p2_to_affine(&mut aff, p) };
+                let mut compressed = [0u8; 96];
+                unsafe { blst_p2_compress(compressed.as_mut_ptr(), p) };
+                let on_curve = unsafe { blst_p2_affine_on_curve(&aff) };
+                let in_g2 = unsafe { blst_p2_in_g2(p) };
+                let is_inf = unsafe { blst_p2_is_inf(p) };
+                format!(
+                    "{}\nPoint2\nOn curve: {}\nIn G2: {}\nInfinity: {}\nCompressed: 0x{}",
+                    format!("{}", self),
+                    on_curve,
+                    in_g2,
+                    is_inf,
+                    hex::encode(compressed)
+                )
+            }
+
             _ => format!("{}", self),
         }
+
+
     }
 }
 

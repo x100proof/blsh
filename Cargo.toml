@@ -12,6 +12,7 @@ hex = "0.4.3"
 num-bigint = "0.4.6"
 num-traits = "0.2.19"
 dirs = "6.0.0"
+pretty = "0.12.4"
 
 [build-dependencies]
 pest_generator = "2.8.0"
