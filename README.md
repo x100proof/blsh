@@ -2,9 +2,11 @@
 
 Pronounced "blush".
 
-A shell/REPL for doing BLS12-381 arithmetic.
+- A shell/REPL for doing BLS12-381 arithmetic.
+- Backed by Supranational's [blst](https://github.com/supranational/blst) library.
+- Inspired by [BLS12-381 For The Rest Of Us](https://hackmd.io/@benjaminion/bls12-381)[^1]
 
-Backed by Supranational's [blst](https://github.com/supranational/blst) library.
+
 
 ## Terminology
 
@@ -78,21 +80,68 @@ In order to make reading (and parsing!) expressions easy we use a novel literal 
 
 ### Number literals
 
-| Suffix          | Bytes  | Description           | Type         | Examples
-------------------|--------|-----------------------|--------------|-----------------------
-   `s`           | 32     |  $\in \mathbb{F}_r$   | Scalar       | `12:s`, `0xdeadbeef:s`
-                 | 48     |  $\in \mathbb{F}_p$   | Coord1       | `42`, `0xcafebabe`
-   `p1`          | 48⋆    | compressed $\mathbb{F}_{p}$ pair     | Point1 | `0x7abc...p1` (96  digits)
-   `u1`          | 96⋆    | uncompressed $\mathbb{F}_{p}$ pair   | Point1 | `0x01fa...u1` (192 digits)
-   `p2`          | 96⋆    | compressed $\mathbb{F}_{p^2}$ pair   | Point2 | `0x70da...p2` (192 digits)
-   `u2`          | 192⋆   | uncompressed $\mathbb{F}_{p^2}$ pair | Point2 | `0x002c...u2` (384 digits)
+<table>
+  <thead>
+    <tr>
+      <th>Suffix</th>
+      <th>Bytes</th>
+      <th>Description</th>
+      <th>Type</th>
+      <th>Examples</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>s</code></td>
+      <td>32</td>
+      <td>$\in \mathbb{F}_r$</td>
+      <td>Scalar</td>
+      <td> <code>`12:s`</code>, <code>0xdeadbeef:s</code> </td>
+    </tr>
+    <tr>
+      <td></td>
+      <td>48</td>
+      <td>$\in \mathbb{F}_p$</td>
+      <td><code>Coord1</code></td>
+      <td> <code>`42`</code>, <code>0xcafebabe</code> </td>
+    </tr>
+    <tr>
+      <td><code>p1</code></td>
+      <td>48⋆</td>
+      <td>compressed $\mathbb{F}_{p}$ pair</td>
+      <td><code>Point1</code></td>
+      <td><code>0x7abc...p1</code> (96 digits) </td>
+    </tr>
+    <tr>
+      <td><code>u1</code></td>
+      <td>48⋆</td>
+      <td>uncompressed $\mathbb{F}_{p}$ pair</td>
+      <td><code>Point1</code></td>
+      <td><code>0x01fa...u1</code> (192 digits) </td>
+    </tr>
+    <tr>
+      <td><code>p2</code></td>
+      <td>96⋆</td>
+      <td>compressed $\mathbb{F}_{p^2}$ pair</td>
+      <td><code>Point2</code></td>
+      <td><code>0x70da...p2</code> (192 digits) </td>
+    </tr>
+    <tr>
+      <td><code>u2</code></td>
+      <td>192⋆</td>
+      <td>uncompressed $\mathbb{F}_{p^2}$ pair</td>
+      <td><code>Point2</code></td>
+      <td><code>0x002c...u2</code> (192 digits) </td>
+    </tr>
+  </tbody>
+</table>
 
 - You can optionally put a `:` or a `|` in front of the suffix to make things look cleaner e.g. `0xdeadbeef|s`
 - ⋆ denotes that exactly 2× this many hex digits must be written in the literal
 - See [ZCash serialization spec](https://github.com/zkcrypto/pairing/blob/34aa52b0f7bef705917252ea63e5a13fa01af551/src/bls12_381/README.md#serialization) for uncompressed/compressed form.
 
 - **NOTE**: Compressed and uncompressed literals must be on the curve (but not necessarily in G1 or G2).
-- **NOTE** This is not true for manually constructed points with `blsh`. This can be useful for security work.
+- **NOTE** This is not true for manually constructed points with `blsh`. You can create points that do not even lie on $E_1$ or $E_2$. This can be useful for security work.
 
 ### Point literals
 
@@ -115,10 +164,13 @@ Examples:
 
 Examples:
 
-```( p1x97f1d3a73197d7942695638c4fa9ac0fc3688c4f9774b905a14e3a3f171bac586c55e83ff97a1aeffb3af00adb22c6b ,p1x97f1d3a73197d7942695638c4fa9ac0fc3688c4f9774b905a14e3a3f171bac586c55e83ff97a1aeffb3af00adb22c6bb )
+```
+(p1x97f1d3a73197d7942695638c4fa9ac0fc3688c4f9774b905a14e3a3f171bac586c55e83ff97a1aeffb3af00adb22c6b,  p1x97f1d3a73197d7942695638c4fa9ac0fc3688c4f9774b905a14e3a3f171bac586c55e83ff97a1aeffb3af00adb22c6bb)
 ```
 
-- `((12, 0xf1), (0x12, 42))
+```
+((12, 0xf1), (0x12, 42))
+```
 
 ### Coord<x> literals
 
@@ -133,7 +185,8 @@ There are 4 types: `Coord1`, `Coord2`, `Coord6` and `Coord12`
 
 #### Coord2 literals
 
-Format |
+Format                    |
+--------------------------|
 `[` Coord1 `,` Coord1 `]` |
 
 
@@ -188,14 +241,5 @@ This [page](https://hackmd.io/@benjaminion/bls12-381) renders the G2 points as p
 p2 = ([0x02, 0x00],[0x013a59858b6809fca4d9a3b6539246a70051a3c88899964a42bc9a69cf9acdd9dd387cfa9086b894185b9a46a402be73,0x02d27e0ec3356299a346a09ad7dc4ef68a483c3aed53f9139d2f929a3eecebf72082e5e58c6da24ee32e03040c406d4f])
 ```
 
+[^1]: Nice Seinfeld reference. "Festivus for the rest of us!" 
 
-## GitHub, why isn't this rendering correctly?
-
-- $(\mathbb{F}_p, \mathbb{F}_p) \in \mathbb{F}_{p^2}$ does not render correctly, but
-- $(\mathbb{F}_p, \mathbb{F}_p)$ does, and so does
-- $\mathbb{F}_{p^2}$
-
-Even "breaking it all up on one line" doesn't render properly:
-$(\mathbb{F}_p, \mathbb{F}_p)$
-$\in$
-$\mathbb{F}_{p^2}$
