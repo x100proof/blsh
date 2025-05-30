@@ -1,9 +1,8 @@
 use blst::*;
 use std::collections::HashMap;
-use pprint::{Doc, Indent, Printer, Wrap};
+use pprint::{Doc, Indent, Printer, Wrap, Group};
 use pprint::Doc::{Softline};
-
-
+use terminal_size::{Width, terminal_size};
 
 #[derive(Debug)]
 pub enum EvalError {
@@ -43,6 +42,17 @@ enum Brackets {
 }
 
 
+pub trait WithType {
+    fn with_type(self, type_str: String) -> Self;
+}
+
+impl WithType for Doc<'_> {
+    fn with_type(self, type_str: String) -> Self {
+        (self + Softline + (Doc::from(":") + Softline + Doc::from(type_str)).group()).group()
+    }
+}
+
+
 fn wrap_with_brackets(doc: Doc<'static>, brackets: Brackets) -> Doc<'static>{
     match brackets {
         Brackets::Brace  => doc.wrap("( ", " )"),
@@ -53,12 +63,12 @@ fn wrap_with_brackets(doc: Doc<'static>, brackets: Brackets) -> Doc<'static>{
 
 fn pretty_pair(x: Doc<'static>, y: Doc<'static>, brackets: Brackets) -> Doc<'static> {
     let doc = x  +  Softline +  Doc::from(", ") + y;
-    wrap_with_brackets(doc, brackets)
+    wrap_with_brackets(doc, brackets).group()
 }
 
 fn pretty_triple(x: Doc<'static>, y: Doc<'static>, z: Doc<'static>, brackets: Brackets) -> Doc<'static> {
     let doc = x  +  Softline +  Doc::from(", ") + y + Softline + Doc::from(", ") + z;
-    wrap_with_brackets(doc, brackets)
+    wrap_with_brackets(doc, brackets).group()
 }
 
 
@@ -98,10 +108,6 @@ pub fn pretty_coord12(fp12: &blst_fp12) -> Doc<'static> {
                 Brackets::Square)
 }
 
-pub fn pretty_type(type_str: String) -> Doc<'static> {
-    Softline + Doc::from(" :") + Doc::from(type_str)
-}
-
 impl std::fmt::Display for EvalError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -126,15 +132,16 @@ impl std::fmt::Display for EvalError {
 
 impl std::fmt::Display for Value {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let printer = Printer::new(80, 2, true, false);
+        let width = get_terminal_width(80); // recalculate always
+        let printer = Printer::new(width, 2, true, false);
         let doc = match self {
-            Value::Point1(p) => pretty_point1(p) + pretty_type("Point1".to_string()),
-            Value::Point2(p) => pretty_point2(p) + pretty_type("Point2".to_string()),
-            Value::Scalar(s) => Doc::from(scalar_to_hex(s)) + pretty_type("Scalar".to_string()),
-            Value::Coord1(fp) => pretty_coord1(fp) + pretty_type("Coord1".to_string()),
-            Value::Coord2(fp2) => pretty_coord2(fp2) + pretty_type("Coord2".to_string()),
-            Value::Coord6(fp6) => pretty_coord6(fp6) + pretty_type("Coord6".to_string()),
-            Value::Coord12(fp12) => pretty_coord12(fp12) + pretty_type("Coord12".to_string()),
+            Value::Point1(p) => pretty_point1(p).with_type("Point1".to_string()),
+            Value::Point2(p) => pretty_point2(p).with_type("Point2".to_string()),
+            Value::Scalar(s) => Doc::from(scalar_to_hex(s)).with_type("Scalar".to_string()),
+            Value::Coord1(fp) => pretty_coord1(fp).with_type("Coord1".to_string()),
+            Value::Coord2(fp2) => pretty_coord2(fp2).with_type("Coord2".to_string()),
+            Value::Coord6(fp6) => pretty_coord6(fp6).with_type("Coord6".to_string()),
+            Value::Coord12(fp12) => pretty_coord12(fp12).with_type("Coord12".to_string()),
         };
         write!(f, "{}", printer.pprint(doc))
     }
@@ -210,4 +217,12 @@ pub fn builtin_env() -> HashMap<String, Value> {
 
 pub fn is_builtin(name: &str) -> bool {
     matches!(name, "p1inf" | "p2inf" | "g1" | "g2")
+}
+
+fn get_terminal_width(default: usize) -> usize {
+    if let Some((Width(w), _)) = terminal_size() {
+        w as usize
+    } else {
+        default
+    }
 }

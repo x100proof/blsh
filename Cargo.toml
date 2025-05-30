@@ -15,6 +15,7 @@ dirs = "6.0.0"
 pprint = "0.2.2"
 ansi_term = "0.12.1"
 atty = "0.2.14"
+terminal_size = "0.4.2"
 
 
 [build-dependencies]
