@@ -1,6 +1,6 @@
 use blst::*;
 use std::collections::HashMap;
-use pprint::{concat, wrap, Doc, Group, Indent, Printer, Wrap};
+use pprint::{Doc, Indent, Printer, Wrap};
 use pprint::Doc::{Softline};
 
 
@@ -43,7 +43,7 @@ enum Brackets {
 }
 
 
-pub fn wrap_with_brackets(doc: Doc<'static>, brackets: Brackets) -> Doc<'static>{
+fn wrap_with_brackets(doc: Doc<'static>, brackets: Brackets) -> Doc<'static>{
     match brackets {
         Brackets::Brace  => doc.wrap("( ", " )"),
         Brackets::Curly  => doc.wrap("{ ", " }"),
@@ -51,12 +51,12 @@ pub fn wrap_with_brackets(doc: Doc<'static>, brackets: Brackets) -> Doc<'static>
     }
 }
 
-pub fn pretty_pair(x: Doc<'static>, y: Doc<'static>, brackets: Brackets) -> Doc<'static> {
+fn pretty_pair(x: Doc<'static>, y: Doc<'static>, brackets: Brackets) -> Doc<'static> {
     let doc = x  +  Softline +  Doc::from(", ") + y;
     wrap_with_brackets(doc, brackets)
 }
 
-pub fn pretty_triple(x: Doc<'static>, y: Doc<'static>, z: Doc<'static>, brackets: Brackets) -> Doc<'static> {
+fn pretty_triple(x: Doc<'static>, y: Doc<'static>, z: Doc<'static>, brackets: Brackets) -> Doc<'static> {
     let doc = x  +  Softline +  Doc::from(", ") + y + Softline + Doc::from(", ") + z;
     wrap_with_brackets(doc, brackets)
 }
@@ -190,23 +190,6 @@ pub fn fp_to_hex(fp: &blst_fp) -> String {
     unsafe { blst_bendian_from_fp(out.as_mut_ptr(), fp) };
     format!("0x{}", hex::encode(out))
 }
-
-pub fn fp2_to_hex(fp2: &blst_fp2) -> String {
-    let mut a = [0u8; 48];
-    let mut b = [0u8; 48];
-    unsafe { blst_bendian_from_fp(a.as_mut_ptr(), &fp2.fp[0]) };
-    unsafe { blst_bendian_from_fp(b.as_mut_ptr(), &fp2.fp[1]) };
-    format!("[0x{},\n 0x{}]", hex::encode(a), hex::encode(b))
-}
-
-pub fn fp6_to_hex(fp6: &blst_fp6) -> String {
-    format!("{{{},\n{},\n{}}},", fp2_to_hex(&fp6.fp2[0]), fp2_to_hex(&fp6.fp2[1]), fp2_to_hex(&fp6.fp2[2]))
-}
-
-pub fn fp12_to_hex(fp12: &blst_fp12) -> String {
-    format!("{{{},\n{}}},", fp6_to_hex(&fp12.fp6[0]), fp6_to_hex(&fp12.fp6[1]))
-}
-
 
 pub fn scalar_to_hex(s: &blst_scalar) -> String {
     let mut out = [0u8; 32];
