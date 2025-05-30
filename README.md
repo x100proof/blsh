@@ -10,8 +10,8 @@ Pronounced "blush".
 
 `blsh` can be used to do industrial grade BLS12-381 cryptography.
 
-But it's reason for being is **for learning and building intuition**. I hope it will help
-cryptography students (especially security researchers) learn about it quicker. It's certainly already helped me!
+But it's real reason for being is **for learning and building intuition**. I hope it will help
+cryptography students (especially security researchers) learn about BLS12-381 more quickly. It's certainly already helped me!
 
 In the sections that follow we will see some illustrative examples.
 
