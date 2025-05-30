@@ -1,8 +1,8 @@
 use blst::*;
 use std::collections::HashMap;
-use pprint::{Doc, Indent, Printer, Wrap, Group, if_break};
-use pprint::Doc::{Line, Hardline, Softline};
 use terminal_size::{Width, terminal_size};
+use pretty::{RcDoc};
+use std::ops::Add;
 
 #[derive(Debug)]
 pub enum EvalError {
@@ -42,75 +42,82 @@ enum Brackets {
 }
 
 
+// impl<'a> Add for RcDoc<'a> {
+//     fn add(self, other: RcDoc<'a>) -> RcDoc<'a> {
+//         self.append(other)
+//     }
+// }
+
 trait PPrintExt {
     fn with_type(self, type_str: String) -> Self;
     fn wrap_brackets(self, brackets: Brackets) -> Self;
 }
 
-impl PPrintExt for Doc<'_> {
+impl<'a> PPrintExt for RcDoc<'a> {
     fn with_type(self, type_str: String) -> Self {
-        self + space_break() + (Doc::from(":") + space_break() + Doc::from(type_str))
+        self.append(RcDoc::concat(
+           vec![RcDoc::line(),
+                    RcDoc::concat(vec![RcDoc::text(":"), RcDoc::line(), RcDoc::text(type_str)]).group()
+                     ]).group()
+        )
     }
 
    fn wrap_brackets(self, brackets: Brackets) -> Self {
         match brackets {
-            Brackets::Brace  => self.wrap("(", ")"),
-            Brackets::Curly  => self.wrap("{", "}"),
-            Brackets::Square => self.wrap("[", "]"),
+            Brackets::Brace  => RcDoc::concat(vec![RcDoc::text("(").append(RcDoc::space()), self, RcDoc::space().append(RcDoc::text(")"))]),
+            Brackets::Curly  => RcDoc::concat(vec![RcDoc::text("{").append(RcDoc::space()), self, RcDoc::space().append(RcDoc::text("}"))]),
+            Brackets::Square => RcDoc::concat(vec![RcDoc::text("[").append(RcDoc::space()), self, RcDoc::space().append(RcDoc::text("]"))]),
         }
     }
 }
 
-fn space_break() -> Doc<'static> {
-  // if_break(Doc::from(" "), Line)
-  Softline
+fn pretty_pair<'a>(x: RcDoc<'a>, y: RcDoc<'a>, brackets: Brackets) -> RcDoc<'a> {
+    RcDoc::concat(vec![x, RcDoc::line_(), RcDoc::text(","), RcDoc::space(), y]).wrap_brackets(brackets).group()
 }
 
-fn pretty_pair(x: Doc<'static>, y: Doc<'static>, brackets: Brackets) -> Doc<'static> {
-    let doc = (x  +  space_break()).group() +  (Doc::from(",") + space_break() + y).group();
-    doc.wrap_brackets(brackets).group()
+fn pretty_triple<'a>(x: RcDoc<'a>, y: RcDoc<'a>, z: RcDoc<'a>, brackets: Brackets) -> RcDoc<'a> {
+    RcDoc::concat(vec![
+        x, RcDoc::line_(),
+        RcDoc::text(","), RcDoc::space(), y, RcDoc::line_(),
+        RcDoc::text(","), RcDoc::space(), z
+    ]).wrap_brackets(brackets).group()
 }
 
-fn pretty_triple(x: Doc<'static>, y: Doc<'static>, z: Doc<'static>, brackets: Brackets) -> Doc<'static> {
-    let doc = x  +  space_break() +  Doc::from(",") + y + space_break() + Doc::from(",") + z;
-    doc.wrap_brackets(brackets).group()
-}
-
-fn pretty_point1(p: &blst_p1) -> Doc<'static> {
+fn pretty_point1<'a>(p: &blst_p1) -> RcDoc<'a> {
     let mut aff = blst_p1_affine::default();
     unsafe { blst_p1_to_affine(&mut aff, p) };
-    pretty_pair(pretty_coord1(&aff.x).indent(),
-                pretty_coord1(&aff.y).indent(),
+    pretty_pair(pretty_coord1(&aff.x).nest(2),
+                pretty_coord1(&aff.y).nest(2),
                 Brackets::Brace)
 }
 
-fn pretty_point2(p: &blst_p2) -> Doc<'static> {
+fn pretty_point2(p: &blst_p2) -> RcDoc<'static> {
     let mut aff = blst_p2_affine::default();
     unsafe { blst_p2_to_affine(&mut aff, p) };
-    let a_doc = pretty_coord2(&aff.x).indent();
-    let b_doc = pretty_coord2(&aff.y).indent();
+    let a_doc = pretty_coord2(&aff.x).nest(2);
+    let b_doc = pretty_coord2(&aff.y).nest(2);
     pretty_pair(a_doc, b_doc, Brackets::Brace)
 }
 
-fn pretty_coord1(fp: &blst_fp) -> Doc<'static> {
-    Doc::from(fp_to_hex(fp))
+fn pretty_coord1<'a>(fp: &blst_fp) -> RcDoc<'a> {
+    RcDoc::as_string(fp_to_hex(fp))
 }
 
-fn pretty_coord2(fp2: &blst_fp2) -> Doc<'static> {
+fn pretty_coord2<'a>(fp2: &blst_fp2) -> RcDoc<'a> {
     pretty_pair(pretty_coord1(&fp2.fp[0]), pretty_coord1(&fp2.fp[1]), Brackets::Square)
 }
 
-fn pretty_coord6(fp6: &blst_fp6) -> Doc<'static> {
+fn pretty_coord6<'a>(fp6: &blst_fp6) -> RcDoc<'a> {
     pretty_triple(
-        pretty_coord2(&fp6.fp2[0]).indent(),
-        pretty_coord2(&fp6.fp2[1]).indent(),
-        pretty_coord2(&fp6.fp2[2]).indent(),
+        pretty_coord2(&fp6.fp2[0]).nest(2),
+        pretty_coord2(&fp6.fp2[1]).nest(2),
+        pretty_coord2(&fp6.fp2[2]).nest(2),
         Brackets::Curly)
 }
 
-fn pretty_coord12(fp12: &blst_fp12) -> Doc<'static> {
-    pretty_pair(pretty_coord6(&fp12.fp6[0]).indent(),
-                pretty_coord6(&fp12.fp6[1]).indent(),
+fn pretty_coord12<'a>(fp12: &blst_fp12) -> RcDoc<'a> {
+    pretty_pair(pretty_coord6(&fp12.fp6[0]).nest(2),
+                pretty_coord6(&fp12.fp6[1]).nest(2),
                 Brackets::Square)
 }
 
@@ -139,18 +146,18 @@ impl std::fmt::Display for EvalError {
 impl std::fmt::Display for Value {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let width = get_terminal_width(80); // recalculate always
-        println!("{:?}", width);
-        let printer = Printer::new(width, 2, true, false);
         let doc = match self {
             Value::Point1(p) => pretty_point1(p).with_type("Point1".to_string()),
             Value::Point2(p) => pretty_point2(p).with_type("Point2".to_string()),
-            Value::Scalar(s) => Doc::from(scalar_to_hex(s)).with_type("Scalar".to_string()),
+            Value::Scalar(s) => RcDoc::as_string(scalar_to_hex(s)).with_type("Scalar".to_string()),
             Value::Coord1(fp) => pretty_coord1(fp).with_type("Coord1".to_string()),
             Value::Coord2(fp2) => pretty_coord2(fp2).with_type("Coord2".to_string()),
             Value::Coord6(fp6) => pretty_coord6(fp6).with_type("Coord6".to_string()),
             Value::Coord12(fp12) => pretty_coord12(fp12).with_type("Coord12".to_string()),
         };
-        write!(f, "{}", printer.pprint(doc))
+        let mut w = Vec::new();
+        let utf8 = doc.render(width, &mut w).unwrap();
+        write!(f, "{}", String::from_utf8(w).unwrap())
     }
 }
 
