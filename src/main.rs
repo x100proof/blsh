@@ -3,6 +3,9 @@ use std::path::PathBuf;
 use std::fs;
 use rustyline::Editor;
 use rustyline::history::FileHistory;
+use ansi_term::Colour::{Green, Yellow};
+use atty::Stream;
+
 
 mod ast;
 mod eval;
@@ -20,9 +23,15 @@ fn main() {
     rl.load_history(&history_path).ok();
 
     let mut env: HashMap<String, Value> = builtin_env();
+    let color_enabled = supports_color();
+    let prompt = if color_enabled {
+        format!("{}", Green.bold().paint("blsh> "))
+    } else {
+        "blsh> ".to_string()
+    };
 
     loop {
-        let readline = rl.readline("blsh> ");
+        let readline = rl.readline(&prompt);
         match readline {
             Ok(line) => {
                 let _ = rl.add_history_entry(&line);
@@ -35,32 +44,10 @@ fn main() {
                 }
                 match parse_program(line) {
                     Ok(stmt) => match stmt {
-                        Statement::Let(name, expr) => {
-                            if is_builtin(&name) {
-                                println!("Error: {}", EvalError::CannotRedefineBuiltin);
-                                continue;
-                            }
-                            match eval(expr, &env) {
-                                Ok(value) => {
-                                    env.insert(name.clone(), value.clone());
-                                    println!("{} = {}", name, value);
-                                }
-                                Err(e) => println!("{}", e),
-                            }
-                        }
-                        Statement::Command(cmd) => match cmd {
-                            Command::Info(expr) => match eval(expr, &env) {
-                                Ok(val) => {
-                                    println!("{}", val.describe());
-                                },
-                                Err(e) => println!("{}", e),
-                            },
-                        }
-                        Statement::Expr(expr) => match eval(expr, &env) {
-                            Ok(result) => println!("{}", result),
-                            Err(e) => println!("{}", e),
-                        },
-                    }
+                        Statement::Let(name, expr) => handle_let(name, expr, &mut env, color_enabled),
+                        Statement::Command(cmd) => handle_command(cmd, &env, color_enabled),
+                        Statement::Expr(expr) => handle_expr(expr, &env, color_enabled),
+                    },
                     Err(e) => println!("{}", e),
                 }
             }
@@ -69,6 +56,59 @@ fn main() {
     }
 
     rl.save_history(&history_path).ok();
+}
+
+fn handle_let(name: String, expr: ast::Expr, env: &mut HashMap<String, Value>, color_enabled: bool) {
+    if is_builtin(&name) {
+        println!("Error: {}", EvalError::CannotRedefineBuiltin);
+        return;
+    }
+    match eval(expr, env) {
+        Ok(value) => {
+            env.insert(name.clone(), value.clone());
+            let output = if color_enabled {
+                Yellow.paint(value.to_string()).to_string()
+            } else {
+                value.to_string()
+            };
+            println!("{} = {}", name, output);
+        }
+        Err(e) => println!("{}", e),
+    }
+}
+
+fn handle_command(cmd: Command, env: &HashMap<String, Value>, color_enabled: bool) {
+    match cmd {
+        Command::Info(expr) => match eval(expr, env) {
+            Ok(val) => {
+                let desc = val.describe();
+                if color_enabled {
+                    println!("{}", Yellow.paint(desc));
+                } else {
+                    println!("{}", desc);
+                }
+            }
+            Err(e) => println!("{}", e),
+        }
+    }
+}
+
+fn handle_expr(expr: ast::Expr, env: &HashMap<String, Value>, color_enabled: bool) {
+    match eval(expr, env) {
+        Ok(result) => {
+            let output = if color_enabled {
+                Yellow.paint(result.to_string()).to_string()
+            } else {
+                result.to_string()
+            };
+            println!("{}", output);
+        }
+        Err(e) => println!("{}", e),
+    }
+}
+
+fn supports_color() -> bool {
+    atty::is(Stream::Stdout)
 }
 
 fn get_history_path() -> PathBuf {
