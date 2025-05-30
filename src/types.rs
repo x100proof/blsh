@@ -1,7 +1,7 @@
 use blst::*;
 use std::collections::HashMap;
-use pprint::{Doc, Indent, Printer, Wrap, Group};
-use pprint::Doc::{Softline};
+use pprint::{Doc, Indent, Printer, Wrap, Group, if_break};
+use pprint::Doc::{Line, Hardline, Softline};
 use terminal_size::{Width, terminal_size};
 
 #[derive(Debug)]
@@ -42,43 +42,49 @@ enum Brackets {
 }
 
 
-pub trait WithType {
+trait PPrintExt {
     fn with_type(self, type_str: String) -> Self;
+    fn wrap_brackets(self, brackets: Brackets) -> Self;
 }
 
-impl WithType for Doc<'_> {
+impl PPrintExt for Doc<'_> {
     fn with_type(self, type_str: String) -> Self {
-        (self + Softline + (Doc::from(":") + Softline + Doc::from(type_str)).group()).group()
+        self + space_break() + (Doc::from(":") + space_break() + Doc::from(type_str))
+    }
+
+   fn wrap_brackets(self, brackets: Brackets) -> Self {
+        match brackets {
+            Brackets::Brace  => self.wrap("(", ")"),
+            Brackets::Curly  => self.wrap("{", "}"),
+            Brackets::Square => self.wrap("[", "]"),
+        }
     }
 }
 
-
-fn wrap_with_brackets(doc: Doc<'static>, brackets: Brackets) -> Doc<'static>{
-    match brackets {
-        Brackets::Brace  => doc.wrap("( ", " )"),
-        Brackets::Curly  => doc.wrap("{ ", " }"),
-        Brackets::Square => doc.wrap("[ ", " ]"),
-    }
+fn space_break() -> Doc<'static> {
+  // if_break(Doc::from(" "), Line)
+  Softline
 }
 
 fn pretty_pair(x: Doc<'static>, y: Doc<'static>, brackets: Brackets) -> Doc<'static> {
-    let doc = x  +  Softline +  Doc::from(", ") + y;
-    wrap_with_brackets(doc, brackets).group()
+    let doc = (x  +  space_break()).group() +  (Doc::from(",") + space_break() + y).group();
+    doc.wrap_brackets(brackets).group()
 }
 
 fn pretty_triple(x: Doc<'static>, y: Doc<'static>, z: Doc<'static>, brackets: Brackets) -> Doc<'static> {
-    let doc = x  +  Softline +  Doc::from(", ") + y + Softline + Doc::from(", ") + z;
-    wrap_with_brackets(doc, brackets).group()
+    let doc = x  +  space_break() +  Doc::from(",") + y + space_break() + Doc::from(",") + z;
+    doc.wrap_brackets(brackets).group()
 }
 
-
-pub fn pretty_point1(p: &blst_p1) -> Doc<'static> {
+fn pretty_point1(p: &blst_p1) -> Doc<'static> {
     let mut aff = blst_p1_affine::default();
     unsafe { blst_p1_to_affine(&mut aff, p) };
-    pretty_pair(pretty_coord1(&aff.x), pretty_coord1(&aff.y), Brackets::Brace)
+    pretty_pair(pretty_coord1(&aff.x).indent(),
+                pretty_coord1(&aff.y).indent(),
+                Brackets::Brace)
 }
 
-pub fn pretty_point2(p: &blst_p2) -> Doc<'static> {
+fn pretty_point2(p: &blst_p2) -> Doc<'static> {
     let mut aff = blst_p2_affine::default();
     unsafe { blst_p2_to_affine(&mut aff, p) };
     let a_doc = pretty_coord2(&aff.x).indent();
@@ -86,15 +92,15 @@ pub fn pretty_point2(p: &blst_p2) -> Doc<'static> {
     pretty_pair(a_doc, b_doc, Brackets::Brace)
 }
 
-pub fn pretty_coord1(fp: &blst_fp) -> Doc<'static> {
+fn pretty_coord1(fp: &blst_fp) -> Doc<'static> {
     Doc::from(fp_to_hex(fp))
 }
 
-pub fn pretty_coord2(fp2: &blst_fp2) -> Doc<'static> {
+fn pretty_coord2(fp2: &blst_fp2) -> Doc<'static> {
     pretty_pair(pretty_coord1(&fp2.fp[0]), pretty_coord1(&fp2.fp[1]), Brackets::Square)
 }
 
-pub fn pretty_coord6(fp6: &blst_fp6) -> Doc<'static> {
+fn pretty_coord6(fp6: &blst_fp6) -> Doc<'static> {
     pretty_triple(
         pretty_coord2(&fp6.fp2[0]).indent(),
         pretty_coord2(&fp6.fp2[1]).indent(),
@@ -102,7 +108,7 @@ pub fn pretty_coord6(fp6: &blst_fp6) -> Doc<'static> {
         Brackets::Curly)
 }
 
-pub fn pretty_coord12(fp12: &blst_fp12) -> Doc<'static> {
+fn pretty_coord12(fp12: &blst_fp12) -> Doc<'static> {
     pretty_pair(pretty_coord6(&fp12.fp6[0]).indent(),
                 pretty_coord6(&fp12.fp6[1]).indent(),
                 Brackets::Square)
@@ -133,6 +139,7 @@ impl std::fmt::Display for EvalError {
 impl std::fmt::Display for Value {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let width = get_terminal_width(80); // recalculate always
+        println!("{:?}", width);
         let printer = Printer::new(width, 2, true, false);
         let doc = match self {
             Value::Point1(p) => pretty_point1(p).with_type("Point1".to_string()),
