@@ -8,7 +8,12 @@ Pronounced "blush".
 
 ## Quick start
 
-While I hope `blsh` can be used to do real BLS12-381 calculations it's reason for being is **for learning and building intuition**. Here are some examples:
+`blsh` can be used to do industrial grade BLS12-381 cryptography.
+
+But it's reason for being is **for learning and building intuition**. I hope it will help
+cryptography students (especially security researchers) learn about it quicker. It's certainly already helped me!
+
+In the sections that follow we will see some illustrative examples.
 
 ### Bi-linearity
 
