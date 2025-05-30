@@ -100,7 +100,7 @@ fn punct<'a>(s: &str, b: Brightness) -> PP<'a> {
 fn line<'a>() -> PP<'a> { PP(RcDoc::line()) }
 fn line_<'a>() -> PP<'a> { PP(RcDoc::line_()) }
 fn space<'a>() -> PP<'a> { PP(RcDoc::space()) }
-fn text<'a>(s: &'a str) -> PP<'a> { PP(RcDoc::text(s))}
+// fn text<'a>(s: &'a str) -> PP<'a> { PP(RcDoc::text(s))}
 fn concat<'a, I>(docs: I) -> PP<'a>
     where I: IntoIterator<Item = PP<'a>>,
     {
