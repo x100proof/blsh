@@ -71,7 +71,7 @@ fn handle_let(name: String, expr: ast::Expr, env: &mut HashMap<String, Value>) {
         Ok(value) => {
             env.insert(name.clone(), value.clone());
             let output = format!("{} = {}", name, value);
-            println!("{}", colour_with(Colour::Yellow.normal(), output)); // FIXME: Pretty print
+            println!("{}", output);
         }
         Err(e) => handle_eval_err(e),
     }
@@ -80,7 +80,7 @@ fn handle_let(name: String, expr: ast::Expr, env: &mut HashMap<String, Value>) {
 fn handle_command(cmd: Command, env: &HashMap<String, Value>) {
     match cmd {
         Command::Info(expr) => match eval(expr, env) {
-            Ok(val) => println!("{}", colour_with(Colour::Yellow.normal(), val.describe())),
+            Ok(val) => println!("{}", val.describe()),
             Err(e) => handle_eval_err(e),
         }
     }
@@ -88,7 +88,7 @@ fn handle_command(cmd: Command, env: &HashMap<String, Value>) {
 
 fn handle_expr(expr: ast::Expr, env: &HashMap<String, Value>) {
     match eval(expr, env) {
-        Ok(result) => println!("{}", colour_with(Colour::Yellow.normal(), result.to_string())),
+        Ok(result) => println!("{}", result.to_string()),
         Err(e) => handle_eval_err(e),
     }
 }

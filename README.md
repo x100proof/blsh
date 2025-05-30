@@ -6,6 +6,18 @@ Pronounced "blush".
 - Backed by Supranational's [blst](https://github.com/supranational/blst) library.
 - Inspired by [BLS12-381 For The Rest Of Us](https://hackmd.io/@benjaminion/bls12-381)[^1]
 
+## Installation
+
+These are just the standard Rust project installation instructions.
+
+1. Install Rust using [rustup](https://www.rust-lang.org/tools/install)
+
+2. Install `blsh` in `$HOME/.cargo/bin` with:
+
+```
+$ cargo install --path .
+```
+
 ## Quick start
 
 `blsh` can be used to do industrial grade BLS12-381 cryptography.
