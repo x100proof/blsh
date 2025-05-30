@@ -1,6 +1,6 @@
 use blst::*;
 use std::collections::HashMap;
-use pprint::{Doc, Printer, Wrap, concat, Indent, Group};
+use pprint::{concat, wrap, Doc, Group, Indent, Printer, Wrap};
 use pprint::Doc::{Softline};
 
 
@@ -36,27 +36,71 @@ pub enum Value {
 }
 
 
-
-pub fn pretty_pair(x: &blst_fp, y: &blst_fp) -> Doc<'static> {
-    let x_hex = fp_to_hex(x);
-    let y_hex = fp_to_hex(y);
-    (Doc::from(x_hex) +  Softline +  Doc::from(", ") + Doc::from(y_hex)).wrap("( ", " )")
+enum Brackets {
+    Brace,
+    Curly,
+    Square
 }
+
+
+pub fn wrap_with_brackets(doc: Doc<'static>, brackets: Brackets) -> Doc<'static>{
+    match brackets {
+        Brackets::Brace  => doc.wrap("( ", " )"),
+        Brackets::Curly  => doc.wrap("{ ", " }"),
+        Brackets::Square => doc.wrap("[ ", " ]"),
+    }
+}
+
+pub fn pretty_pair(x: Doc<'static>, y: Doc<'static>, brackets: Brackets) -> Doc<'static> {
+    let doc = x  +  Softline +  Doc::from(", ") + y;
+    wrap_with_brackets(doc, brackets)
+}
+
+pub fn pretty_triple(x: Doc<'static>, y: Doc<'static>, z: Doc<'static>, brackets: Brackets) -> Doc<'static> {
+    let doc = x  +  Softline +  Doc::from(", ") + y + Softline + Doc::from(", ") + z;
+    wrap_with_brackets(doc, brackets)
+}
+
 
 pub fn pretty_point1(p: &blst_p1) -> Doc<'static> {
     let mut aff = blst_p1_affine::default();
     unsafe { blst_p1_to_affine(&mut aff, p) };
-    pretty_pair(&aff.x, &aff.y)
+    pretty_pair(pretty_coord1(&aff.x), pretty_coord1(&aff.y), Brackets::Brace)
 }
 
 pub fn pretty_point2(p: &blst_p2) -> Doc<'static> {
     let mut aff = blst_p2_affine::default();
     unsafe { blst_p2_to_affine(&mut aff, p) };
-    let a_doc = pretty_pair(&aff.x.fp[0], &aff.x.fp[1]);
-    let b_doc = pretty_pair(&aff.y.fp[0], &aff.y.fp[1]);
-    (a_doc.indent() +  Softline + Doc::from(", ") + b_doc.indent()).wrap("( ", " )")
+    let a_doc = pretty_coord2(&aff.x).indent();
+    let b_doc = pretty_coord2(&aff.y).indent();
+    pretty_pair(a_doc, b_doc, Brackets::Brace)
 }
 
+pub fn pretty_coord1(fp: &blst_fp) -> Doc<'static> {
+    Doc::from(fp_to_hex(fp))
+}
+
+pub fn pretty_coord2(fp2: &blst_fp2) -> Doc<'static> {
+    pretty_pair(pretty_coord1(&fp2.fp[0]), pretty_coord1(&fp2.fp[1]), Brackets::Square)
+}
+
+pub fn pretty_coord6(fp6: &blst_fp6) -> Doc<'static> {
+    pretty_triple(
+        pretty_coord2(&fp6.fp2[0]).indent(),
+        pretty_coord2(&fp6.fp2[1]).indent(),
+        pretty_coord2(&fp6.fp2[2]).indent(),
+        Brackets::Curly)
+}
+
+pub fn pretty_coord12(fp12: &blst_fp12) -> Doc<'static> {
+    pretty_pair(pretty_coord6(&fp12.fp6[0]).indent(),
+                pretty_coord6(&fp12.fp6[1]).indent(),
+                Brackets::Square)
+}
+
+pub fn pretty_type(type_str: String) -> Doc<'static> {
+    Softline + Doc::from(" :") + Doc::from(type_str)
+}
 
 impl std::fmt::Display for EvalError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -84,17 +128,13 @@ impl std::fmt::Display for Value {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let printer = Printer::new(80, 2, true, false);
         let doc = match self {
-            Value::Point1(p) => {
-                pretty_point1(p) + Softline + Doc::from(": Point1")
-            }
-            Value::Point2(p) => {
-                pretty_point2(p) + Softline + Doc::from(": Point2")
-            }
-            Value::Scalar(s) => Doc::from(format!("{} : Scalar", scalar_to_hex(s))),
-            Value::Coord1(fp) => Doc::from(format!("{} : Coord1", fp_to_hex(fp))),
-            Value::Coord2(fp2) => Doc::from(format!("{} : Coord2", fp2_to_hex(fp2))),
-            Value::Coord6(fp2) => Doc::from(format!("{} : Coord6", fp6_to_hex(fp2))),
-            Value::Coord12(fp2) => Doc::from(format!("{} : Coord12", fp12_to_hex(fp2))),
+            Value::Point1(p) => pretty_point1(p) + pretty_type("Point1".to_string()),
+            Value::Point2(p) => pretty_point2(p) + pretty_type("Point2".to_string()),
+            Value::Scalar(s) => Doc::from(scalar_to_hex(s)) + pretty_type("Scalar".to_string()),
+            Value::Coord1(fp) => pretty_coord1(fp) + pretty_type("Coord1".to_string()),
+            Value::Coord2(fp2) => pretty_coord2(fp2) + pretty_type("Coord2".to_string()),
+            Value::Coord6(fp6) => pretty_coord6(fp6) + pretty_type("Coord6".to_string()),
+            Value::Coord12(fp12) => pretty_coord12(fp12) + pretty_type("Coord12".to_string()),
         };
         write!(f, "{}", printer.pprint(doc))
     }
