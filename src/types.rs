@@ -3,6 +3,9 @@ use std::collections::HashMap;
 use terminal_size::{Width, terminal_size};
 use pretty::{RcDoc};
 use std::ops::Add;
+use ansi_term::Colour::{Yellow, Blue, Fixed};
+use ansi_term::Style;
+use atty::Stream;
 
 #[derive(Debug)]
 pub enum EvalError {
@@ -40,6 +43,22 @@ enum Brackets {
     Square
 }
 
+#[derive(Clone,Copy, Debug)]
+enum Brightness {
+    Light,
+    Medium,
+    Dark
+}
+
+impl Brightness {
+    fn darken(self) -> Self {
+        match self {
+            Self::Light => Self::Medium,
+            _           => Self::Dark,
+        }
+    }
+}
+
 struct PP<'a>(RcDoc<'a>);
 
 impl<'a> Add for PP<'a> {
@@ -49,7 +68,35 @@ impl<'a> Add for PP<'a> {
     }
 }
 
-// Helpers
+fn supports_color() -> bool {
+    atty::is(Stream::Stdout)
+}
+
+fn styled<'a>(s: &str, style: Style) -> PP<'a> {
+    if supports_color() {
+        PP(RcDoc::text(style.paint(s).to_string()))
+    } else {
+        PP(RcDoc::text(s.to_string()))
+    }
+}
+
+fn keyword<'a>(s: &str) -> PP<'a> {
+    styled(s, Blue.bold())
+}
+
+fn ident<'a>(s: &str) -> PP<'a> {
+    styled(s, Yellow.normal())
+}
+
+fn punct<'a>(s: &str, b: Brightness) -> PP<'a> {
+    let i = match b {
+        Brightness::Dark   => 240,
+        Brightness::Medium => 245,
+        Brightness::Light  => 250,
+    };
+    styled(s, Fixed(i).normal())
+}
+
 fn line<'a>() -> PP<'a> { PP(RcDoc::line()) }
 fn line_<'a>() -> PP<'a> { PP(RcDoc::line_()) }
 fn space<'a>() -> PP<'a> { PP(RcDoc::space()) }
@@ -61,7 +108,6 @@ fn concat<'a, I>(docs: I) -> PP<'a>
     }
 
 impl<'a> PP<'a> {
-
     fn group(self) -> Self {
         PP(self.0.group())
     }
@@ -81,30 +127,29 @@ impl<'a> PP<'a> {
     fn with_type(self, type_str: &'a str) -> Self {
         self + concat(
            vec![line(),
-                concat(vec![text(":"), line(), text(type_str)]).group()
+                concat(vec![punct(":",Brightness::Light), line(), keyword(type_str)]).group()
                ]).group()
     }
 
-    fn wrap_brackets(self, brackets: Brackets) -> Self {
+    fn wrap_brackets(self, brackets: Brackets, b: Brightness) -> Self {
         match brackets {
-            Brackets::Brace  => concat(vec![text("(") + space(), self, space() + text(")")]),
-            Brackets::Curly  => concat(vec![text("{") + space(), self, space() + text("}")]),
-            Brackets::Square => concat(vec![text("[") + space(), self, space() + text("]")]),
+            Brackets::Brace  => concat(vec![punct("(", b) + space(), self, space() + punct(")", b)]),
+            Brackets::Curly  => concat(vec![punct("{", b) + space(), self, space() + punct("}", b)]),
+            Brackets::Square => concat(vec![punct("[", b) + space(), self, space() + punct("]", b)]),
         }
     }
-
 }
 
-fn pretty_pair<'a>(x: PP<'a>, y: PP<'a>, brackets: Brackets) -> PP<'a> {
-    concat(vec![x, line_(), text(","), space(), y]).wrap_brackets(brackets).group()
+fn pretty_pair<'a>(x: PP<'a>, y: PP<'a>, brackets: Brackets, b: Brightness) -> PP<'a> {
+    concat(vec![x, line_(), punct(",", b), space(), y]).wrap_brackets(brackets, b).group()
 }
 
-fn pretty_triple<'a>(x: PP<'a>, y: PP<'a>, z: PP<'a>, brackets: Brackets) -> PP<'a> {
+fn pretty_triple<'a>(x: PP<'a>, y: PP<'a>, z: PP<'a>, brackets: Brackets, b: Brightness) -> PP<'a> {
     concat(vec![
         x, line_(),
-        text(","), space(), y, line_(),
-        text(","), space(), z
-    ]).wrap_brackets(brackets).group()
+        punct(",", b), space(), y, line_(),
+        punct(",", b), space(), z
+    ]).wrap_brackets(brackets, b).group()
 }
 
 fn pretty_point1<'a>(p: &blst_p1) -> PP<'a> {
@@ -112,37 +157,51 @@ fn pretty_point1<'a>(p: &blst_p1) -> PP<'a> {
     unsafe { blst_p1_to_affine(&mut aff, p) };
     pretty_pair(pretty_coord1(&aff.x).nest(2),
                 pretty_coord1(&aff.y).nest(2),
-                Brackets::Brace)
+                Brackets::Brace,
+                Brightness::Light)
 }
 
 fn pretty_point2<'a>(p: &blst_p2) -> PP<'a> {
+    let b = Brightness::Light;
     let mut aff = blst_p2_affine::default();
     unsafe { blst_p2_to_affine(&mut aff, p) };
-    let a_doc = pretty_coord2(&aff.x).nest(2);
-    let b_doc = pretty_coord2(&aff.y).nest(2);
-    pretty_pair(a_doc, b_doc, Brackets::Brace)
+    let a_doc = pretty_coord2_rec(&aff.x, b.darken()).nest(2);
+    let b_doc = pretty_coord2_rec(&aff.y, b.darken()).nest(2);
+    pretty_pair(a_doc, b_doc, Brackets::Brace, b)
 }
 
 fn pretty_coord1<'a>(fp: &blst_fp) -> PP<'a> {
-    PP::as_string(fp_to_hex(fp))
+    ident(&fp_to_hex(fp))
+}
+
+fn pretty_coord2_rec<'a>(fp2: &blst_fp2, b: Brightness) -> PP<'a> {
+    pretty_pair(pretty_coord1(&fp2.fp[0]), pretty_coord1(&fp2.fp[1]), Brackets::Square, b)
 }
 
 fn pretty_coord2<'a>(fp2: &blst_fp2) -> PP<'a> {
-    pretty_pair(pretty_coord1(&fp2.fp[0]), pretty_coord1(&fp2.fp[1]), Brackets::Square)
+    pretty_coord2_rec(fp2, Brightness::Light)
+}
+
+fn pretty_coord6_rec<'a>(fp6: &blst_fp6, b: Brightness) -> PP<'a> {
+    pretty_triple(
+        pretty_coord2_rec(&fp6.fp2[0], b.darken()).nest(2),
+        pretty_coord2_rec(&fp6.fp2[1], b.darken()).nest(2),
+        pretty_coord2_rec(&fp6.fp2[2], b.darken()).nest(2),
+        Brackets::Curly,
+        b
+    )
 }
 
 fn pretty_coord6<'a>(fp6: &blst_fp6) -> PP<'a> {
-    pretty_triple(
-        pretty_coord2(&fp6.fp2[0]).nest(2),
-        pretty_coord2(&fp6.fp2[1]).nest(2),
-        pretty_coord2(&fp6.fp2[2]).nest(2),
-        Brackets::Curly)
+    pretty_coord6_rec(fp6, Brightness::Light)
 }
 
+
 fn pretty_coord12<'a>(fp12: &blst_fp12) -> PP<'a> {
-    pretty_pair(pretty_coord6(&fp12.fp6[0]).nest(2),
-                pretty_coord6(&fp12.fp6[1]).nest(2),
-                Brackets::Square)
+    let b = Brightness::Light;
+    pretty_pair(pretty_coord6_rec(&fp12.fp6[0], b.darken()).nest(2),
+                pretty_coord6_rec(&fp12.fp6[1], b.darken()).nest(2),
+                Brackets::Square, b)
 }
 
 impl std::fmt::Display for EvalError {
