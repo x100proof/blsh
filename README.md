@@ -48,7 +48,8 @@ blsh> embed (g1, 0xcafebabe|s * g2)
     , 0x110b7adeda2b2e8793795a295fe923f7d21dccd41f3f03d808ac2a79b7fd714c6e90f412cb6af1acd89931b47a26694d ]
   , [ 0x015ab5cd3607d2a399d8940127bf15e27ddd57e95c27dcfc5bc9350e3a6ef004a9caec50016996e43a021c90c33c6a58
     , 0x0ad74fe46627cf6fc76d2c44957c377d1d1af8ea6696b9ef42912e71e707dd5f66de4861d2af211ffa69127e60a35c65 ] } ]
- :Coord12```
+ :Coord12
+ ```
 
 Those look pretty equal to me!
 
@@ -83,6 +84,9 @@ blsh> embed(p1inf, g2)
  :Coord12
 ```
 
+The mathematical structure $\mathbb{F}_p^{12}$ is known as `Coord12` in `blsh`. It's a pair of triples of pairs of coordinates in $\mathbb{F}_p$.
+
+And $1$ is actually `[{[1,0],[0,0],[0,0]},{[0,0],[0,0],[0,0]}]` (if we remove the leading zeroes from all of the `Coord1`s)
 
 
 **FIXME**: Add more examples
