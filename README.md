@@ -6,7 +6,53 @@ Pronounced "blush".
 - Backed by Supranational's [blst](https://github.com/supranational/blst) library.
 - Inspired by [BLS12-381 For The Rest Of Us](https://hackmd.io/@benjaminion/bls12-381)[^1]
 
+## Quick start
 
+While I hope `blsh` can be used to do real BLS12-381 calculations it's reason for being is **for learning and building intuition**
+
+So, one of the first things you learn about BLS12-381 is it is bi-linear. i.e.
+
+$$
+e(sP, Q) = e(P, sQ)
+$$
+
+Let's try an example with $s = 2$, $P = g1$ and $Q = g2$ ($g1$, $g2$ are generators for $G_1$ and $G_2$ the prime-order subgroups of $E_1$ and $E_2$ respectively.
+
+```
+blsh> embed (0xcafebabe|s * g1, g2)
+{{[0x0206cdae7064965190821b16dc1823995d376b4870a564c4b24bd68f1eed0b5014f833e7a56bed5040153a6ce29ad817,
+ 0x0cd68b7001d5740857f5f872a0b0ac535cbc6184c53ab9f84b629241d96d0cff0911407293647791daeae1813bb84f71],
+[0x0437f0770f2d20a924e5e454a97d5347fc4ae6c99245873e5fa88887f72d28d5e6019e80b0b2f7691b48aeb230523e4c,
+ 0x09419f2f286b93543c8f144898141ecfae0d0aa9fdd878294830a174cd08b48f3e6c7800c06f1d689b00b705efb45260],
+[0x085d8e1bfced24fd28e6a525b210ef4e8de438147b0f5fbba7c9b11fdcef344c22cdb05dfc76addf36e12fda7c307984,
+ 0x0e7d83d1fb5bc0efea768eb90cf6c98c1f51509576e8796ed578cda3629312b7441ade29ad1cbed420ce8ab58443c7bf]},,
+{[0x02840794a8971ad433ea4cc2aff4fea3f5efa20c5319f3ec75ea2e25700a4a04c3017559ac3d9d3c290e0b272ff1f535,
+ 0x065dcf73c47f6862a716f3628cd805bc156da37450b242516bcd1423314e0dddc1182e0b69d5217c4bd275056b9165e2],
+[0x14af0ee1153a8cc5148295385cb5e19d1abbdb4d9b791c102821e6ff6a8cff967f60508d37248ba516ce37f88c82ba94,
+ 0x110b7adeda2b2e8793795a295fe923f7d21dccd41f3f03d808ac2a79b7fd714c6e90f412cb6af1acd89931b47a26694d],
+[0x015ab5cd3607d2a399d8940127bf15e27ddd57e95c27dcfc5bc9350e3a6ef004a9caec50016996e43a021c90c33c6a58,
+ 0x0ad74fe46627cf6fc76d2c44957c377d1d1af8ea6696b9ef42912e71e707dd5f66de4861d2af211ffa69127e60a35c65]},}, : Coord12
+blsh> embed (g1, 0xcafebabe|s * g2)
+{{[0x0206cdae7064965190821b16dc1823995d376b4870a564c4b24bd68f1eed0b5014f833e7a56bed5040153a6ce29ad817,
+ 0x0cd68b7001d5740857f5f872a0b0ac535cbc6184c53ab9f84b629241d96d0cff0911407293647791daeae1813bb84f71],
+[0x0437f0770f2d20a924e5e454a97d5347fc4ae6c99245873e5fa88887f72d28d5e6019e80b0b2f7691b48aeb230523e4c,
+ 0x09419f2f286b93543c8f144898141ecfae0d0aa9fdd878294830a174cd08b48f3e6c7800c06f1d689b00b705efb45260],
+[0x085d8e1bfced24fd28e6a525b210ef4e8de438147b0f5fbba7c9b11fdcef344c22cdb05dfc76addf36e12fda7c307984,
+ 0x0e7d83d1fb5bc0efea768eb90cf6c98c1f51509576e8796ed578cda3629312b7441ade29ad1cbed420ce8ab58443c7bf]},,
+{[0x02840794a8971ad433ea4cc2aff4fea3f5efa20c5319f3ec75ea2e25700a4a04c3017559ac3d9d3c290e0b272ff1f535,
+ 0x065dcf73c47f6862a716f3628cd805bc156da37450b242516bcd1423314e0dddc1182e0b69d5217c4bd275056b9165e2],
+[0x14af0ee1153a8cc5148295385cb5e19d1abbdb4d9b791c102821e6ff6a8cff967f60508d37248ba516ce37f88c82ba94,
+ 0x110b7adeda2b2e8793795a295fe923f7d21dccd41f3f03d808ac2a79b7fd714c6e90f412cb6af1acd89931b47a26694d],
+[0x015ab5cd3607d2a399d8940127bf15e27ddd57e95c27dcfc5bc9350e3a6ef004a9caec50016996e43a021c90c33c6a58,
+ 0x0ad74fe46627cf6fc76d2c44957c377d1d1af8ea6696b9ef42912e71e707dd5f66de4861d2af211ffa69127e60a35c65]},}, : Coord12
+```
+
+Those look pretty equal to me!
+
+**FIXME**: Add more examples
+- [ ] embed with point at infinity
+- [ ] torsion points
+- [ ] cofactor clearing
 
 ## Terminology
 
@@ -22,8 +68,6 @@ Pronounced "blush".
 ## Types
 
 This language has the following types
-
-
 
 <table>
   <thead>
@@ -214,32 +258,5 @@ Format    |           |
 Flattened |  `[`Coord1`,`Coord1`,`Coord1`,`Coord1`,`Coord1`,`Coord1`,`Coord1`,`Coord1`,`Coord1`,`Coord1`,`Coord1`,`Coord1`]` |
 Nested    | `[[[`Coord1`,`Coord1`],[`Coord1`,`Coord1`],`Coord1`,`Coord1`]],[[`Coord1`,`Coord1`],[`Coord1`,`Coord1`],`Coord1`,`Coord1`]]]`
 
-
-
-
-
-
-## TODO
-
-- [ ] Add map_to_g1, map_to_g2 functions to turn 2 Coord1s/Coord2s into Point1/Point2
-- [X] Encode Coord2 as pair. Parse it that way too.
-- [X] Think about adding a Point6 type
-- [X] Make `point1(0x4, sqrt(coord1(0x44)))` parseable
-- [ ] Add scalar arithmetic (even though not supported by `blst`)
-- [ ] Add equality operations
-- [x] Add extended info for Point1 too
-- [ ] Add pretty printing library
-- [ ] Validate size of all scalars/coord1/coord2s
-- [ ] Add more scalar constants do you can do projections to torsion groups and G1/G2
-- [x] Add embedding into F_p^12
-- [x] Add Scalar multiplication for Point2
-- [ ] Add polynomial representation in "info" command
-
-
-This [page](https://hackmd.io/@benjaminion/bls12-381) renders the G2 points as pairs, so you're on right track.
-```
-p2 = ([0x02, 0x00],[0x013a59858b6809fca4d9a3b6539246a70051a3c88899964a42bc9a69cf9acdd9dd387cfa9086b894185b9a46a402be73,0x02d27e0ec3356299a346a09ad7dc4ef68a483c3aed53f9139d2f929a3eecebf72082e5e58c6da24ee32e03040c406d4f])
-```
-
-[^1]: Nice Seinfeld reference. "Festivus for the rest of us!" 
+[^1]: Nice Seinfeld reference. "Festivus for the rest of us!"
 
