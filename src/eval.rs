@@ -132,7 +132,37 @@ pub fn eval(expr: Expr, env: &HashMap<String, Value>) -> Result<Value, EvalError
             } else {
                 Err(EvalError::NotASquare(fp_to_hex(&coord)))
             }
-        }
+        },
+
+        // 100proof: I had considered just calling the primitive `map` but then you lose
+        // the idea that it's a prime order subgroup. `map_to_g` didn't really work for me either
+        // Hence the duplication of logic for MapToG1/MapToG2
+        Expr::MapToG1(x_expr, y_expr) => {
+            let l = eval(*x_expr, env)?;
+            let r = eval(*y_expr, env)?;
+            match (l, r) {
+                (Value::Coord1(x), Value::Coord1(y)) => {
+                    let mut result = blst_p1::default();
+                    unsafe { blst_map_to_g1(&mut result, &x, &y); }
+                    Ok(Value::Point1(result))
+                }
+                _ => Err(EvalError::TypeMismatchMapToG1),
+            }
+        },
+
+        Expr::MapToG2(x_expr,y_expr) => {
+            let l = eval(*x_expr, env)?;
+            let r = eval(*y_expr, env)?;
+            match (l, r) {
+                (Value::Coord2(x), Value::Coord2(y)) => {
+                    let mut result = blst_p2::default();
+                    unsafe { blst_map_to_g2(&mut result, &x, &y); }
+                    Ok(Value::Point2(result))
+                }
+                _ => Err(EvalError::TypeMismatchMapToG2),
+            }
+        },
+
 
         Expr::Mul(lhs, rhs) => {
             let l = eval(*lhs, env)?;
@@ -166,7 +196,7 @@ pub fn eval(expr: Expr, env: &HashMap<String, Value>) -> Result<Value, EvalError
                     unsafe { blst_p2_add_or_double(&mut out, &p1, &p2); }
                     Ok(Value::Point2(out))
                 }
-                _ => Err(EvalError::TypeMismatchPoint1Add),
+                _ => Err(EvalError::TypeMismatchPointAdd),
             }
         }
         Expr::Sub(lhs, rhs) => {
@@ -185,7 +215,7 @@ pub fn eval(expr: Expr, env: &HashMap<String, Value>) -> Result<Value, EvalError
                     unsafe { blst_p2_add_or_double(&mut out, &p1, &p2); }
                     Ok(Value::Point2(out))
                 }
-                _ => Err(EvalError::TypeMismatchPoint1Sub),
+                _ => Err(EvalError::TypeMismatchPointSub),
             }
         }
         Expr::Neg(inner) => {
@@ -199,7 +229,7 @@ pub fn eval(expr: Expr, env: &HashMap<String, Value>) -> Result<Value, EvalError
                     unsafe { blst_p2_cneg(&mut p, true); }
                     Ok(Value::Point2(p))
                 }
-                _ => Err(EvalError::TypeMismatchPoint1Neg),
+                _ => Err(EvalError::TypeMismatchPointNeg),
             }
         }
         Expr::Var(name) => {

@@ -18,6 +18,8 @@ unary_expr = { "-" ~ unary_expr | primary }
 // Put all rules for "reserved words" first
 primary     =  {
     | sqrt
+    | map_to_g1
+    | map_to_g2
     | embed
     | point
     | compressed_point1
@@ -69,6 +71,8 @@ dec        = @{ ASCII_DIGIT+ }
 hex   = @{ "0x" ~ ASCII_HEX_DIGIT+ }
 
 sqrt  = { "sqrt" ~ "(" ~ expr ~ ")" }
+map_to_g1 = { "map_to_g1" ~ "(" ~ expr ~ "," ~ expr ~ ")" }
+map_to_g2 = { "map_to_g2" ~ "(" ~ expr ~ "," ~ expr ~ ")" }
 embed = { "embed" ~ "(" ~ expr ~ "," ~ expr ~ ")" }
 
 ident       =  @{ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")* }

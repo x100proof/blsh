@@ -29,7 +29,6 @@ const RESERVED_WORDS: &[&str] = &[
     "let", "info", "sqrt", "point1", "point2", "coord1", "coord2", "scalar", "embed",
 ];
 
-
 impl std::fmt::Display for ParseError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 
@@ -264,6 +263,22 @@ fn parse_primary(pair: Pair<Rule>) -> Result<Expr, ParseError> {
             let inner = pair.into_inner().next().unwrap();
             let arg = parse_expr(inner)?;
             Ok(Expr::Sqrt(Box::new(arg)))
+        }
+
+        // 100proof: I'm doubling up on logic here but the naming aligns with `blst` so
+        // users will known what is going on
+        Rule::map_to_g1 => {
+            let mut inner = pair.into_inner();
+            let x_expr = parse_expr(inner.next().unwrap())?;
+            let y_expr = parse_expr(inner.next().unwrap())?;
+            Ok(Expr::MapToG1(Box::new(x_expr), Box::new(y_expr)))
+        }
+
+        Rule::map_to_g2 => {
+            let mut inner = pair.into_inner();
+            let x_expr = parse_expr(inner.next().unwrap())?;
+            let y_expr = parse_expr(inner.next().unwrap())?;
+            Ok(Expr::MapToG2(Box::new(x_expr), Box::new(y_expr)))
         }
 
         Rule::embed => {

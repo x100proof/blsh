@@ -20,9 +20,11 @@ pub enum EvalError {
     NotASquare(String),
     TypeMismatchCoord1,
     TypeMismatchMul,
-    TypeMismatchPoint1Add,
-    TypeMismatchPoint1Neg,
-    TypeMismatchPoint1Sub,
+    TypeMismatchMapToG1,
+    TypeMismatchMapToG2,
+    TypeMismatchPointAdd,
+    TypeMismatchPointNeg,
+    TypeMismatchPointSub,
     UnknownIdent(String),
 }
 
@@ -218,9 +220,11 @@ impl std::fmt::Display for EvalError {
             EvalError::NotASquare(n)   => write!(f, "No square root for {}", n),
             EvalError::TypeMismatchCoord1       => write!(f, "Expected Coord1 operand"),
             EvalError::TypeMismatchMul          => write!(f, "Scalars can only be multiplied with points"),
-            EvalError::TypeMismatchPoint1Add    => write!(f, "Can only add points (of the same type)"),
-            EvalError::TypeMismatchPoint1Neg    => write!(f, "Can only negate points"),
-            EvalError::TypeMismatchPoint1Sub    => write!(f, "Can only subtract points (of the same type)"),
+            EvalError::TypeMismatchMapToG1     => write!(f, "map_to_g1 can only be applied to Coord1 types"),
+            EvalError::TypeMismatchMapToG2     => write!(f, "map_to_g2 can only be applied to Coord2 types"),
+            EvalError::TypeMismatchPointAdd    => write!(f, "Can only add points (of the same type)"),
+            EvalError::TypeMismatchPointNeg    => write!(f, "Can only negate points"),
+            EvalError::TypeMismatchPointSub    => write!(f, "Can only subtract points (of the same type)"),
             EvalError::UnknownIdent(s) => write!(f, "Unknown identifier: {}", s),
         }
     }
