@@ -315,7 +315,7 @@ fn parse_unbounded_number(pair: Pair<Rule>) -> Result<Box<[u8]>, ParseError> {
     }?;
 
     let n = BigUint::parse_bytes(stripped.as_bytes(), radix).ok_or(err_invalid_number.clone())?;
-    let vec_bytes = n.to_bytes_be();
+    let vec_bytes = n.to_bytes_le();
     Ok(vec_bytes.into_boxed_slice())
 }
 

@@ -302,13 +302,15 @@ pub fn fp_to_hex(fp: &blst_fp) -> String {
 }
 
 pub fn scalar_to_hex(s: Box<[u8]>) -> String {
-    format!("0x{}", hex::encode(&*s))
+    let mut vec = s.into_vec();
+    vec.reverse();
+    format!("0x{}", hex::encode(vec))
 }
 
 pub fn hex_to_scalar(s: &str) -> Box<[u8]> {
     let s = s.strip_prefix("0x").unwrap_or(s); // optional prefix
     let n = BigUint::parse_bytes(s.as_bytes(), 16).unwrap();
-    n.to_bytes_be().into_boxed_slice()
+    n.to_bytes_le().into_boxed_slice()
 }
 
 pub fn builtin_env() -> HashMap<String, Value> {
