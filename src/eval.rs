@@ -6,9 +6,7 @@ use blst::*;
 pub fn eval(expr: Expr, env: &HashMap<String, Value>) -> Result<Value, EvalError> {
     match expr {
         Expr::Scalar(bytes) => {
-            let mut s = blst_scalar::default();
-            unsafe { blst_scalar_from_bendian(&mut s, bytes.as_ptr()) };
-            Ok(Value::Scalar(s))
+            Ok(Value::Scalar(bytes))
         }
         Expr::Coord1(bytes) => {
             let mut fp = blst_fp::default();
@@ -170,12 +168,12 @@ pub fn eval(expr: Expr, env: &HashMap<String, Value>) -> Result<Value, EvalError
             match (l, r) {
                 (Value::Point1(p), Value::Scalar(s)) | (Value::Scalar(s), Value::Point1(p)) => {
                     let mut result = blst_p1::default();
-                    unsafe { blst_p1_mult(&mut result, &p, s.b.as_ptr(), 256); }
+                    unsafe { blst_p1_mult(&mut result, &p, s.as_ptr(), s.len() * 8); }
                     Ok(Value::Point1(result))
                 }
                 (Value::Point2(p), Value::Scalar(s)) | (Value::Scalar(s), Value::Point2(p)) => {
                     let mut result = blst_p2::default();
-                    unsafe { blst_p2_mult(&mut result, &p, s.b.as_ptr(), 256); }
+                    unsafe { blst_p2_mult(&mut result, &p, s.as_ptr(), s.len() * 8); }
                     Ok(Value::Point2(result))
                 }
                 _ => Err(EvalError::TypeMismatchMul),

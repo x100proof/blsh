@@ -31,7 +31,8 @@ pub enum EvalError {
 
 #[derive(Clone, Debug)]
 pub enum Value {
-    Scalar(blst_scalar),
+    // PkScalar(blst_scalar), // for secret keys
+    Scalar(Box<[u8]>),
     Point1(blst_p1),
     Point2(blst_p2),
     Coord1(blst_fp),
@@ -237,7 +238,7 @@ impl std::fmt::Display for Value {
         let doc = match self {
             Value::Point1(p) => pretty_point1(p).with_type("Point1"),
             Value::Point2(p) => pretty_point2(p).with_type("Point2"),
-            Value::Scalar(s) => PP::as_string(scalar_to_hex(s)).with_type("Scalar"),
+            Value::Scalar(s) => PP::as_string(scalar_to_hex(s.clone())).with_type("Scalar"),
             Value::Coord1(fp) => pretty_coord1(fp).with_type("Coord1"),
             Value::Coord2(fp2) => pretty_coord2(fp2).with_type("Coord2"),
             Value::Coord6(fp6) => pretty_coord6(fp6).with_type("Coord6"),
@@ -300,43 +301,40 @@ pub fn fp_to_hex(fp: &blst_fp) -> String {
     format!("0x{}", hex::encode(out))
 }
 
-pub fn scalar_to_hex(s: &blst_scalar) -> String {
-    let mut out = [0u8; 32];
-    unsafe { blst_bendian_from_scalar(out.as_mut_ptr(), s) };
-    format!("0x{}", hex::encode(out))
+pub fn scalar_to_hex(s: Box<[u8]>) -> String {
+    format!("0x{}", hex::encode(&*s))
 }
 
-pub fn hex_to_scalar(s: &str) -> blst_scalar {
+pub fn hex_to_scalar(s: &str) -> Box<[u8]> {
     let s = s.strip_prefix("0x").unwrap_or(s); // optional prefix
     let n = BigUint::parse_bytes(s.as_bytes(), 16).unwrap();
-    let mut scalar = blst_scalar::default();
-    let bytes = n.to_bytes_be();
-    let mut padded = [0u8; 32];
-    padded[32 - bytes.len()..].copy_from_slice(&bytes);
-    unsafe { blst_scalar_from_bendian(&mut scalar, padded.as_ptr()); }
-    scalar
+    n.to_bytes_be().into_boxed_slice()
 }
 
 pub fn builtin_env() -> HashMap<String, Value> {
     let mut env = HashMap::new();
-    env.insert("p1inf".to_string(), Value::Point1(blst_p1::default()));
-    env.insert("p2inf".to_string(), Value::Point2(blst_p2::default()));
-    let g1 = unsafe { *blst_p1_generator() };
-    env.insert("g1".to_string(), Value::Point1(g1));
-    let g2 = unsafe { *blst_p2_generator() };
-    env.insert("g2".to_string(), Value::Point2(g2));
-    env.insert("p".to_string(), Value::Scalar(hex_to_scalar("0x73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001")));
-    env.insert("h1".to_string(), Value::Scalar(hex_to_scalar("0x396c8c005555e1568c00aaab0000aaab")));
-
-
-    // FIXME: You've done scalar multiplication all wrong.
-    // env.insert("q".to_string(), Value::Scalar(hex_to_scalar("0x1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaab")));
-    // env.insert("h2".to_string(), Value::Scalar(hex_to_scalar("0x5d543a95414e7f1091d50792876a202cd91de4547085abaa68a205b2e5a7ddfa628f1cb4d9e82ef21537e293a6691ae1616ec6e786f0c70cf1c38e31c7238e5")));
+    for (key, value) in builtins() {
+      env.insert(key.to_string(), value);
+    }
     env
 }
 
+fn builtins() -> [(String, Value); 10] {
+    [ ("p1inf", Value::Point1(blst_p1::default())),
+      ("p2inf", Value::Point2(blst_p2::default())),
+      ("g1", Value::Point1(unsafe { *blst_p1_generator() })),
+      ("g2", Value::Point2(unsafe { *blst_p2_generator() })),
+      ("bls_q", Value::Scalar(hex_to_scalar("0x1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaab"))),
+      ("bls_p", Value::Scalar(hex_to_scalar("0x73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001"))),
+      ("order_e1", Value::Scalar(hex_to_scalar("0x1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb15400008c0000000000aaab"))),
+      ("order_e2", Value::Scalar(hex_to_scalar("0x2a437a4b8c35fc74bd278eaa22f25e9e2dc90e50e7046b466e59e49349e8bd050a62cfd16ddca6ef53149330978ef0137697386bf984315744a2d5eb3dd4d213f2484c55b94474ab096de2c62640b2643116b1e2788e6a8b2a9fffe1c7238e5"))),
+      ("h1", Value::Scalar(hex_to_scalar("0x396c8c005555e1568c00aaab0000aaab"))),
+      ("h2", Value::Scalar(hex_to_scalar("0x5d543a95414e7f1091d50792876a202cd91de4547085abaa68a205b2e5a7ddfa628f1cb4d9e82ef21537e293a6691ae1616ec6e786f0c70cf1c38e31c7238e5"))),
+    ].map(|(s,v)| (s.to_string(), v))
+}
+
 pub fn is_builtin(name: &str) -> bool {
-    matches!(name, "p1inf" | "p2inf" | "g1" | "g2" | "q" | "p" | "h1" | "h2" )
+    builtins().iter().find(|(s, _)| *s == name).is_some()
 }
 
 fn get_terminal_width(default: usize) -> usize {

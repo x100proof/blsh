@@ -12,7 +12,8 @@ pub enum Command {
 
 #[derive(Debug, Clone)]
 pub enum Expr {
-    Scalar([u8; 32]),
+    // SkScalar([u8; 32]), // distinguished from an ordinary scalar which can be unbounded
+    Scalar(Box<[u8]>),
     Coord1([u8; 48]),
     CoordPair(Box<Expr>, Box<Expr>),
     CoordTriple(Box<Expr>, Box<Expr>, Box<Expr>),

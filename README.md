@@ -244,6 +244,38 @@ In order to make reading (and parsing!) expressions easy we use a novel literal 
 - **NOTE**: Compressed and uncompressed literals must be on the curve (but not necessarily in G1 or G2).
 - **NOTE** This is not true for manually constructed points with `blsh`. You can create points that do not even lie on $E_1$ or $E_2$. This can be useful for security work.
 
+### Built-in constants
+
+**FIXME**
+
+```rust
+    [ ("p1inf", Value::Point1(blst_p1::default())),
+      ("p2inf", Value::Point2(blst_p2::default())),
+      ("g1", Value::Point1(unsafe { *blst_p1_generator() })),
+      ("g2", Value::Point2(unsafe { *blst_p2_generator() })),
+      ("bls_q", Value::Scalar(hex_to_scalar("0x1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaab"))),
+      ("bls_p", Value::Scalar(hex_to_scalar("0x73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001"))),
+      ("order_e1", Value::Scalar(hex_to_scalar("0x1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb15400008c0000000000aaab"))),
+      ("order_e2", Value::Scalar(hex_to_scalar("0x2a437a4b8c35fc74bd278eaa22f25e9e2dc90e50e7046b466e59e49349e8bd050a62cfd16ddca6ef53149330978ef0137697386bf984315744a2d5eb3dd4d213f2484c55b94474ab096de2c62640b2643116b1e2788e6a8b2a9fffe1c7238e5"))),
+      ("h1", Value::Scalar(hex_to_scalar("0x396c8c005555e1568c00aaab0000aaab"))),
+      ("h2", Value::Scalar(hex_to_scalar("0x5d543a95414e7f1091d50792876a202cd91de4547085abaa68a205b2e5a7ddfa628f1cb4d9e82ef21537e293a6691ae1616ec6e786f0c70cf1c38e31c7238e5"))),
+    ].map(|(s,v)| (s.to_string(), v))
+```
+
+
+### Let bindings
+
+You can bind a value to a variable name (as long as it doesn't clash with a built-in) like so:
+```
+blsh> let p1 = 7s * g1
+p1 =
+  ( 0x1928f3beb93519eecf0145da903b40a4c97dca00b21f12ac0df3be9116ef2ef27b2ae6bcd4c5bc2d54ef5a70627efcb7
+  , 0x108dadbaa4b636445639d5ae3089b3c43a8a1d47818edd1839d7383959a41c10fdc66849cfa1b08c5a11ec7e28981a1c ) : Point1
+blsh> p1 + p1
+( 0x19bef05aaba1ea467fcbc9c420f5e3153c9d2b5f9bf2c7e2e7f6946f854043627b45b008607b9a9108bb96f3c1c089d3
+, 0x0adb3250ba142db6a748a85e4e401fa0490dd10f27068d161bd47cb562cc189b3194ab53a998e48a48c65e071bb54117 ) : Point1
+```
+
 ### Point literals
 
 #### Point1 literals

@@ -156,7 +156,7 @@ fn parse_primary(pair: Pair<Rule>) -> Result<Expr, ParseError> {
     match pair.as_rule() {
         Rule::scalar => {
             let inner_pair = pair.into_inner().next().unwrap();
-            let bytes = parse_number::<32>(inner_pair,  true, false)?;
+            let bytes = parse_unbounded_number(inner_pair)?;
             Ok(Expr::Scalar(bytes))
         }
         Rule::coord1 => {
@@ -303,6 +303,22 @@ fn parse_ident(pair: Pair<Rule>) -> Result<String, ParseError> {
         Ok(s.to_string())
     }
 }
+
+fn parse_unbounded_number(pair: Pair<Rule>) -> Result<Box<[u8]>, ParseError> {
+    let span = pair.as_span();
+    let err_invalid_number = parse_error(ParseErrorKind::InvalidHex, span);
+    let s0 = pair.as_str();
+
+    let (stripped, radix) = match s0.strip_prefix("0x") {
+        Some(ss) => Ok((ss, 16)),
+        None     => Ok((s0, 10)),
+    }?;
+
+    let n = BigUint::parse_bytes(stripped.as_bytes(), radix).ok_or(err_invalid_number.clone())?;
+    let vec_bytes = n.to_bytes_be();
+    Ok(vec_bytes.into_boxed_slice())
+}
+
 
 fn parse_number<const N: usize>(pair: Pair<Rule>, can_be_decimal: bool, exact_len: bool) -> Result<[u8; N], ParseError> {
     let span = pair.as_span();
