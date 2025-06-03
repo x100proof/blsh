@@ -119,6 +119,7 @@ fn concat<'a, I>(docs: I) -> PP<'a>
         PP(RcDoc::concat(docs.into_iter().map(|x| x.0)))
     }
 
+#[allow(dead_code)]
 impl<'a> PP<'a> {
     fn group(self) -> Self {
         PP(self.0.group())
