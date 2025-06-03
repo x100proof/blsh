@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use crate::ast::Expr;
 use crate::types::{fp_to_hex, EvalError, Value};
 use blst::*;
+use num_bigint::BigUint;
 
 pub fn eval(expr: Expr, env: &HashMap<String, Value>) -> Result<Value, EvalError> {
     match expr {
@@ -161,7 +162,6 @@ pub fn eval(expr: Expr, env: &HashMap<String, Value>) -> Result<Value, EvalError
             }
         },
 
-
         Expr::Mul(lhs, rhs) => {
             let l = eval(*lhs, env)?;
             let r = eval(*rhs, env)?;
@@ -175,6 +175,10 @@ pub fn eval(expr: Expr, env: &HashMap<String, Value>) -> Result<Value, EvalError
                     let mut result = blst_p2::default();
                     unsafe { blst_p2_mult(&mut result, &p, s.as_ptr(), s.len() * 8); }
                     Ok(Value::Point2(result))
+                }
+                (Value::Scalar(s1), Value::Scalar(s2)) => {
+                    let r = BigUint::from_bytes_le(&s1) * BigUint::from_bytes_le(&s2);
+                    Ok(Value::Scalar(r.to_bytes_le().into_boxed_slice()))
                 }
                 _ => Err(EvalError::TypeMismatchMul),
             }
