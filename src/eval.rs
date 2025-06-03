@@ -231,7 +231,17 @@ pub fn eval(expr: Expr, env: &HashMap<String, Value>) -> Result<Value, EvalError
                     unsafe { blst_p2_cneg(&mut p, true); }
                     Ok(Value::Point2(p))
                 }
-                _ => Err(EvalError::TypeMismatchPointNeg),
+                Value::Coord1(fp) => {
+                    let mut fp_out = blst_fp::default();
+                    unsafe { blst_fp_cneg(&mut fp_out, &fp, true); }
+                    Ok(Value::Coord1(fp_out))
+                }
+                Value::Coord2(fp2) => {
+                    let mut fp2_out = blst_fp2::default();
+                    unsafe { blst_fp2_cneg(&mut fp2_out, &fp2, true); }
+                    Ok(Value::Coord2(fp2_out))
+                }
+                _ => Err(EvalError::TypeMismatchNeg),
             }
         }
         Expr::Var(name) => {

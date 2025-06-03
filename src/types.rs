@@ -24,7 +24,7 @@ pub enum EvalError {
     TypeMismatchMapToG1,
     TypeMismatchMapToG2,
     TypeMismatchPointAdd,
-    TypeMismatchPointNeg,
+    TypeMismatchNeg,
     TypeMismatchPointSub,
     UnknownIdent(String),
 }
@@ -269,7 +269,7 @@ impl std::fmt::Display for EvalError {
             EvalError::TypeMismatchMapToG1     => write!(f, "map_to_g1 can only be applied to Coord1 types"),
             EvalError::TypeMismatchMapToG2     => write!(f, "map_to_g2 can only be applied to Coord2 types"),
             EvalError::TypeMismatchPointAdd    => write!(f, "Can only add points (of the same type)"),
-            EvalError::TypeMismatchPointNeg    => write!(f, "Can only negate points"),
+            EvalError::TypeMismatchNeg         => write!(f, "Can only negate Point1, Point2, Coord1, Coord2"),
             EvalError::TypeMismatchPointSub    => write!(f, "Can only subtract points (of the same type)"),
             EvalError::UnknownIdent(s) => write!(f, "Unknown identifier: {}", s),
         }

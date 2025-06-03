@@ -276,6 +276,15 @@ blsh> p1 + p1
 , 0x0adb3250ba142db6a748a85e4e401fa0490dd10f27068d161bd47cb562cc189b3194ab53a998e48a48c65e071bb54117 ) : Point1
 ```
 
+### Scalars
+
+Scalars require the suffix `s`, `:s` or `|s` and can be written in decimal or hex. Hex scalars are prefxed with `0x`.
+
+In `blsh` scalars can be of arbitrary size, although this may not always be necessary. Since `blsh` can be used to handle points that aren't in G1 or G2, multiplying by scalars larger than $p$ (see [BLS12-381 Constants](#bls12-381-constants) below).
+
+But negation of a scalar does not make sense in modular arithmetic without the modulus!
+
+
 ### Point literals
 
 #### Point1 literals

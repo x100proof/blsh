@@ -130,10 +130,10 @@ fn parse_expr(pair: Pair<Rule>) -> Result<Expr, ParseError> {
             }
             Ok(lhs)
         }
-        Rule::unary_expr => {
+        Rule::neg_expr => {
             let mut inner = pair.into_inner();
             let first = inner.next().unwrap();
-            if first.as_rule() == Rule::unary_expr {
+            if first.as_rule() == Rule::neg_expr {
                 Ok(Expr::Neg(Box::new(parse_expr(first)?)))
             } else {
                 parse_expr(first)

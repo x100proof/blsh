@@ -10,9 +10,9 @@ command_stmt = { "info" ~ expr }
 expr        =  { mul_expr ~ (add_op ~ mul_expr)* }
 add_op      =  { "+" | "-" }
 
-mul_expr    =  { unary_expr ~ ("*" ~ unary_expr)* }
+mul_expr    =  { neg_expr ~ ("*" ~ neg_expr)* }
 
-unary_expr = { "-" ~ unary_expr | primary }
+neg_expr = { "-" ~ neg_expr | /*"-p-" ~ neg_expr | "-e1-" ~ neg_expr | "-e2-"  ~ neg_expr |*/ primary }
 
 // Order is important here.
 // Put all rules for "reserved words" first
