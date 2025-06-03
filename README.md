@@ -361,13 +361,13 @@ Nested    | `[[[`Coord1`,`Coord1`],[`Coord1`,`Coord1`],`Coord1`,`Coord1`]],[[`Co
 
 We use the same terminology as [BLS12-381 For The Rest Of Us](https://hackmd.io/@benjaminion/bls12-381). In some other sources you'll see $q$ and $p$ be called $p$ and $r$ respectively.
 
-- $q = 0x1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaab$
-- $p = 0x73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001$
-- $h_1 = 0x396c8c005555e1568c00aaab0000aaab$
-- $h_2 = 0x5d543a95414e7f1091d50792876a202cd91de4547085abaa68a205b2e5a7ddfa628f1cb4d9e82ef21537e293a6691ae1616ec6e786f0c70cf1c38e31c7238e5$
-- $|E_1| = |E_2| = r$
-- $|E_1| = r \cdot h_1 = 0x1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb15400008c0000000000aaab $
-- $|E_2| = r \cdot h_2 = 0x2a437a4b8c35fc74bd278eaa22f25e9e2dc90e50e7046b466e59e49349e8bd050a62cfd16ddca6ef53149330978ef0137697386bf984315744a2d5eb3dd4d213f2484c55b94474ab096de2c62640b2643116b1e2788e6a8b2a9fffe1c7238e5$
+- $q = \text{0x1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaab}$
+- $p = \text{0x73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001}$
+- $h_1 = \text{0x396c8c005555e1568c00aaab0000aaab}$
+- $h_2 = \text{0x5d543a95414e7f1091d50792876a202cd91de4547085abaa68a205b2e5a7ddfa628f1cb4d9e82ef21537e293a6691ae1616ec6e786f0c70cf1c38e31c7238e5}$
+- $|E_1| = |E_2| = p$
+- $|E_1| = r \cdot h_1 = \text{0x1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb15400008c0000000000aaab}$
+- $|E_2| = r \cdot h_2 = \text{0x2a437a4b8c35fc74bd278eaa22f25e9e2dc90e50e7046b466e59e49349e8bd050a62cfd16ddca6ef53149330978ef0137697386bf984315744a2d5eb3dd4d213f2484c55b94474ab096de2c62640b2643116b1e2788e6a8b2a9fffe1c7238e5}$
 
 --------------------------------------------
 
