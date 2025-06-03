@@ -12,7 +12,7 @@ hex = "0.4.3"
 num-bigint = "0.4.6"
 num-traits = "0.2.19"
 dirs = "6.0.0"
-pretty = { git = "https://github.com/one-hundred-proof/pretty.rs", rev = "72679ce3fbf97324297313c73895c460b5fac221"}
+pretty = { git = "https://github.com/one-hundred-proof/pretty.rs", rev = "7e3bf6f374b256812c5afdbbaebf9442f31e123c"}
 ansi_term = "0.12.1"
 atty = "0.2.14"
 terminal_size = "0.4.2"

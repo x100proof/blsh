@@ -422,7 +422,7 @@ dependencies = [
 [[package]]
 name = "pretty"
 version = "0.12.4"
-source = "git+https://github.com/one-hundred-proof/pretty.rs?rev=72679ce3fbf97324297313c73895c460b5fac221#72679ce3fbf97324297313c73895c460b5fac221"
+source = "git+https://github.com/one-hundred-proof/pretty.rs?rev=7e3bf6f374b256812c5afdbbaebf9442f31e123c#7e3bf6f374b256812c5afdbbaebf9442f31e123c"
 dependencies = [
  "arrayvec",
  "console",

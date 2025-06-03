@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use terminal_size::{Width, terminal_size};
 use pretty::{RcDoc};
 use std::ops::Add;
-use ansi_term::Colour::{Yellow, Blue, Fixed};
+use ansi_term::Colour::{Yellow, Blue, Cyan, Fixed};
 use ansi_term::Style;
 use atty::Stream;
 
@@ -84,12 +84,20 @@ fn styled<'a>(s: &str, style: Style) -> PP<'a> {
     }
 }
 
-fn keyword<'a>(s: &str) -> PP<'a> {
+fn type_pp<'a>(s: &str) -> PP<'a> {
     styled(s, Blue.bold())
 }
 
-fn ident<'a>(s: &str) -> PP<'a> {
+fn coord_pp<'a>(s: &str) -> PP<'a> {
     styled(s, Yellow.normal())
+}
+
+fn ident<'a>(s: &str) -> PP<'a> {
+    styled(s, Fixed(129).normal())
+}
+
+fn scalar_pp<'a>(s: &str) -> PP<'a> {
+    styled(s, Cyan.normal())
 }
 
 fn punct<'a>(s: &str, b: Brightness) -> PP<'a> {
@@ -116,10 +124,6 @@ impl<'a> PP<'a> {
         PP(self.0.group())
     }
 
-    fn as_string(s: String) -> Self {
-        PP(RcDoc::as_string(s))
-    }
-
     fn render(self, width: usize, w: &mut Vec<u8>) -> Result<(), std::io::Error> {
        self.0.render(width, w)
     }
@@ -128,10 +132,18 @@ impl<'a> PP<'a> {
         PP(self.0.nest(i))
     }
 
+    fn hang(self, adjust: isize) -> Self {
+        PP(self.0.hang(adjust))
+    }
+
+    fn indent(self, adjust: usize) -> Self {
+        PP(self.0.indent(adjust))
+    }
+
     fn with_type(self, type_str: &'a str) -> Self {
         self + concat(
            vec![line(),
-                concat(vec![punct(":",Brightness::Light), line(), keyword(type_str)]).group()
+                concat(vec![punct(":",Brightness::Light), line(), type_pp(type_str)]).group()
                ]).group()
     }
 
@@ -142,6 +154,10 @@ impl<'a> PP<'a> {
             Brackets::Square => concat(vec![punct("[", b) + space(), self, space() + punct("]", b)]),
         }
     }
+}
+
+fn pretty_scalar<'a>(s: Box<[u8]>) -> PP<'a> {
+  scalar_pp(&scalar_to_hex(s))
 }
 
 fn pretty_pair<'a>(x: PP<'a>, y: PP<'a>, brackets: Brackets, b: Brightness) -> PP<'a> {
@@ -175,7 +191,7 @@ fn pretty_point2<'a>(p: &blst_p2) -> PP<'a> {
 }
 
 fn pretty_coord1<'a>(fp: &blst_fp) -> PP<'a> {
-    ident(&fp_to_hex(fp))
+    coord_pp(&fp_to_hex(fp))
 }
 
 fn pretty_coord2_rec<'a>(fp2: &blst_fp2, b: Brightness) -> PP<'a> {
@@ -208,6 +224,33 @@ fn pretty_coord12<'a>(fp12: &blst_fp12) -> PP<'a> {
                 Brackets::Square, b)
 }
 
+fn pretty_value<'a>(v: &Value) -> PP<'a> {
+    match v {
+        Value::Point1(p) => pretty_point1(p).with_type("Point1"),
+        Value::Point2(p) => pretty_point2(p).with_type("Point2"),
+        Value::Scalar(s) => pretty_scalar(s.clone()).with_type("Scalar"),
+        Value::Coord1(fp) => pretty_coord1(fp).with_type("Coord1"),
+        Value::Coord2(fp2) => pretty_coord2(fp2).with_type("Coord2"),
+        Value::Coord6(fp6) => pretty_coord6(fp6).with_type("Coord6"),
+        Value::Coord12(fp12) => pretty_coord12(fp12).with_type("Coord12"),
+    }
+}
+
+fn pretty_let<'a>(name: &str, value: &Value) -> PP<'a> {
+    (ident(name) + space() + punct("=", Brightness::Light) + space() + pretty_value(value).hang(0)).group()
+}
+
+fn pretty_to_string<'a>(doc: PP<'a>) -> String {
+        let width = get_terminal_width(80); // recalculate always
+        let mut w = Vec::new();
+        doc.render(width, &mut w).unwrap();
+        String::from_utf8(w).unwrap()
+}
+
+pub fn pretty_let_to_string(name: &str, value: &Value) -> String {
+    pretty_to_string(pretty_let(name, value))
+}
+
 impl std::fmt::Display for EvalError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -234,19 +277,8 @@ impl std::fmt::Display for EvalError {
 
 impl std::fmt::Display for Value {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let width = get_terminal_width(80); // recalculate always
-        let doc = match self {
-            Value::Point1(p) => pretty_point1(p).with_type("Point1"),
-            Value::Point2(p) => pretty_point2(p).with_type("Point2"),
-            Value::Scalar(s) => PP::as_string(scalar_to_hex(s.clone())).with_type("Scalar"),
-            Value::Coord1(fp) => pretty_coord1(fp).with_type("Coord1"),
-            Value::Coord2(fp2) => pretty_coord2(fp2).with_type("Coord2"),
-            Value::Coord6(fp6) => pretty_coord6(fp6).with_type("Coord6"),
-            Value::Coord12(fp12) => pretty_coord12(fp12).with_type("Coord12"),
-        };
-        let mut w = Vec::new();
-        doc.render(width, &mut w).unwrap();
-        write!(f, "{}", String::from_utf8(w).unwrap())
+        let str = pretty_to_string(pretty_value(self));
+        write!(f, "{}", str)
     }
 }
 

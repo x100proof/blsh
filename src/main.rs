@@ -14,7 +14,7 @@ mod types;
 use crate::ast::{Statement, Command};
 use crate::eval::eval;
 use crate::parser::parse_program;
-use crate::types::{Value, EvalError, is_builtin, builtin_env};
+use crate::types::{builtin_env, is_builtin, pretty_let_to_string, EvalError, Value};
 
 
 fn main() {
@@ -70,7 +70,7 @@ fn handle_let(name: String, expr: ast::Expr, env: &mut HashMap<String, Value>) {
     match eval(expr, env) {
         Ok(value) => {
             env.insert(name.clone(), value.clone());
-            let output = format!("{} = {}", name, value);
+            let output = pretty_let_to_string(&name, &value);
             println!("{}", output);
         }
         Err(e) => handle_eval_err(e),
