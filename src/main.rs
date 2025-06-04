@@ -98,11 +98,11 @@ fn main() -> Result<()> {
                 let input = line.to_string();
                 match parse_program(line) {
                     Ok(stmt) => match stmt {
-                        Statement::Let(name, expr) => handle_let(input, name, expr, &mut env),
-                        Statement::Command(cmd) => handle_command(input, cmd, &env),
-                        Statement::Expr(expr) => handle_expr(input, expr, &env),
+                        Statement::Let(name, expr) => handle_let(input.clone(), name, expr, &mut env),
+                        Statement::Command(cmd) => handle_command(input.clone(), cmd, &env),
+                        Statement::Expr(expr) => handle_expr(input.clone(), expr, &env),
                     },
-                    Err(e) => println!("{}", e.to_string()),
+                    Err(e) => handle_parse_err(input, e),
                 }
             }
             Err(_) => break,
@@ -156,6 +156,10 @@ fn handle_expr(input: String, expr: ast::Expr, env: &HashMap<String, Value>) {
 }
 
 fn handle_eval_err(input: String, e: EvalError) {
+    eprintln!("{:?}", miette::Report::new(e).with_source_code(input));
+}
+
+fn handle_parse_err(input: String, e: parser::ParseError) {
     eprintln!("{:?}", miette::Report::new(e).with_source_code(input));
 }
 

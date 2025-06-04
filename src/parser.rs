@@ -1,28 +1,62 @@
-use pest::Parser;
+use pest::{error::InputLocation, Parser};
 use pest::iterators::Pair;
 use pest_derive::Parser;
 use num_bigint::BigUint;
 use crate::ast::{Expr, Statement, Command, ExprMeta};
-
-use pest::error::{Error as PestError, ErrorVariant};
 use pest::Span;
 use log::debug;
+use miette::{self, Diagnostic};
+use thiserror::Error;
 
-#[derive(Debug, Clone)]
-pub struct ParseError {
-    pub kind: ParseErrorKind,
-    pub pest: PestError<Rule>,
-}
+type ErrorSpan = (usize, usize);
 
-#[derive(Debug, Clone)]
-pub enum ParseErrorKind {
-    InvalidHex,
-    MustBeExactlyHexDigits(usize, usize),
-    NumberTooLarge(String),
-    UnexpectedToken,
-    ReservedWord,
-    CannotBeDecimal,
+#[derive(Debug, Error, Diagnostic)]
+pub enum ParseError {
+    #[error("Invalid hex number")]
+    InvalidHex {
+        #[label("not a valid hex number")]
+        span: ErrorSpan,
+    },
 
+    #[error("Literal must be exactly {expected} hex digits long")]
+    MustBeExactlyHexDigits {
+        #[label("found {actual} digits")]
+        span: ErrorSpan,
+        expected: usize,
+        actual: usize,
+    },
+
+    #[error("Number too large")]
+    NumberTooLarge {
+        #[label("must be less than {max}")]
+        span: ErrorSpan,
+        max: String,
+    },
+
+    #[error("Unexpected token or end of input")]
+    UnexpectedToken {
+        #[label("unexpected")]
+        span: ErrorSpan,
+    },
+
+    #[error("Cannot use reserved word as identifier")]
+    ReservedWord {
+        #[label("reserved word")]
+        span: ErrorSpan,
+    },
+
+    #[error("Literal cannot be decimal")]
+    CannotBeDecimal {
+        #[label("must use hex format (0x...)")]
+        span: ErrorSpan,
+    },
+
+    #[error("Parse error")]
+    PestError {
+        #[label("{message}")]
+        span: ErrorSpan,
+        message: String,
+    },
 }
 
 // Built-in identifiers are not the same as reserved words
@@ -30,50 +64,8 @@ const RESERVED_WORDS: &[&str] = &[
     "let", "info", "sqrt", "point1", "point2", "coord1", "coord2", "scalar", "embed",
 ];
 
-impl std::fmt::Display for ParseError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-
-        fn clean_parse_error(error: &str) -> String {
-            let lines: Vec<&str> = error.lines().collect();
-
-            if lines.len() <= 2 {
-                return error.to_string(); // Nothing to clean
-            }
-
-            lines[1..lines.len() - 1]  // Skip first and last lines
-                .iter()
-                .map(|line| {
-                    if let Some(idx) = line.find('|') {
-                        line[idx + 1..].to_string()
-                    } else {
-                        line.to_string()
-                    }
-                })
-                .collect::<Vec<String>>()
-                .join("\n")
-        }
-
-
-        let msg = match &self.kind {
-            ParseErrorKind::InvalidHex => "Number not valid hex",
-            ParseErrorKind::NumberTooLarge(hex_str) => &format!("Must be less than {}", hex_str),
-            ParseErrorKind::UnexpectedToken => "Unexpected end of input or unexpected token",
-            ParseErrorKind::ReservedWord => "cannot use reserved word as identifier",
-            ParseErrorKind::CannotBeDecimal => &format!("Literal cannot be decimal"),
-            // FIXME. Better error message based on type
-            ParseErrorKind::MustBeExactlyHexDigits(expected, actual) =>
-              &format!("Literal must be exactly {expected} hex digits long. Currently {actual} digits."),
-        };
-        writeln!(f, "{}\n{}", msg, clean_parse_error(&format!("{}", self.pest)))
-    }
-}
-
-
-fn parse_error(kind: ParseErrorKind, span: Span) -> ParseError {
-    ParseError {
-        kind: kind,
-        pest: PestError::new_from_span(ErrorVariant::ParsingError { positives: vec![], negatives: vec![] }, span)
-    }
+fn span_to_error_span(span: Span) -> ErrorSpan {
+    (span.start(), span.end() - span.start())
 }
 
 #[derive(Parser)]
@@ -83,7 +75,16 @@ pub struct BlshParser;
 
 pub fn parse_program(input: &str) -> Result<Statement, ParseError> {
     let mut pairs = BlshParser::parse(Rule::program, input)
-        .map_err(|e| ParseError { kind: ParseErrorKind::UnexpectedToken, pest: e })?;
+        .map_err(|e| {
+            ParseError::PestError {
+                span: match e.location {
+                    InputLocation::Pos(a) => (0, input.len()),
+                    InputLocation::Span(span) => span
+
+                },
+                message: "Could not parse".to_string()
+            }
+        })?;
     let pair = pairs.next().unwrap();
     let stmt = pair.into_inner().next().unwrap(); // Now Rule::statement
     parse_statement(stmt.into_inner().next().unwrap())
@@ -103,12 +104,14 @@ fn parse_statement(pair: Pair<Rule>) -> Result<Statement, ParseError> {
             Ok(Statement::Command(Command::Info(expr)))
         }
         Rule::expr => Ok(Statement::Expr(parse_expr(pair)?)),
-        _ => Err(parse_error(ParseErrorKind::UnexpectedToken, span)),
+        _ => Err(ParseError::UnexpectedToken {
+            span: span_to_error_span(span),
+        }),
     }
 }
 
 fn parse_expr(pair: Pair<Rule>) -> Result<Expr, ParseError> {
-    let span  = pair.as_span();
+    let span = pair.as_span();
     debug!("Parsing expression: {:?}", pair);
 
     match pair.as_rule() {
@@ -123,7 +126,9 @@ fn parse_expr(pair: Pair<Rule>) -> Result<Expr, ParseError> {
                 lhs = match op_str {
                     "+" => Expr::Add(Box::new(lhs), Box::new(rhs), meta),
                     "-" => Expr::Sub(Box::new(lhs), Box::new(rhs), meta),
-                    _ => return Err(parse_error(ParseErrorKind::UnexpectedToken, span)),
+                    _ => return Err(ParseError::UnexpectedToken {
+                        span: span_to_error_span(span),
+                    }),
                 };
             }
             Ok(lhs)
@@ -267,7 +272,7 @@ fn parse_primary(pair: Pair<Rule>) -> Result<Expr, ParseError> {
 
         Rule::point => {
             let mut inner = pair.into_inner();
-            let expr1 = parse_expr(inner.next().unwrap())?; // FIXME: better error messagesa
+            let expr1 = parse_expr(inner.next().unwrap())?;
             let expr2 = parse_expr(inner.next().unwrap())?;
             let meta = ExprMeta::from_span(span);
             Ok(Expr::Point(Box::new(expr1), Box::new(expr2), meta))
@@ -340,7 +345,9 @@ fn parse_primary(pair: Pair<Rule>) -> Result<Expr, ParseError> {
             Ok(Expr::Var(name, meta))
         },
         // Rule::expr => parse_expr(pair), // seems to be handled up in parse_expr for some reason
-        _ => Err(parse_error(ParseErrorKind::UnexpectedToken, span)),
+        _ => Err(ParseError::UnexpectedToken {
+            span: span_to_error_span(span),
+        }),
     }
 }
 
@@ -348,7 +355,9 @@ fn parse_ident(pair: Pair<Rule>) -> Result<String, ParseError> {
     let span = pair.as_span();
     let s = pair.as_str();
     if RESERVED_WORDS.contains(&s) {
-        Err(parse_error(ParseErrorKind::ReservedWord, span))
+        Err(ParseError::ReservedWord {
+            span: span_to_error_span(span),
+        })
     } else {
         Ok(s.to_string())
     }
@@ -356,7 +365,6 @@ fn parse_ident(pair: Pair<Rule>) -> Result<String, ParseError> {
 
 fn parse_unbounded_number(pair: Pair<Rule>) -> Result<Box<[u8]>, ParseError> {
     let span = pair.as_span();
-    let err_invalid_number = parse_error(ParseErrorKind::InvalidHex, span);
     let s0 = pair.as_str();
 
     let (stripped, radix) = match s0.strip_prefix("0x") {
@@ -364,33 +372,47 @@ fn parse_unbounded_number(pair: Pair<Rule>) -> Result<Box<[u8]>, ParseError> {
         None     => Ok((s0, 10)),
     }?;
 
-    let n = BigUint::parse_bytes(stripped.as_bytes(), radix).ok_or(err_invalid_number.clone())?;
+    let n = BigUint::parse_bytes(stripped.as_bytes(), radix).ok_or(ParseError::InvalidHex {
+        span: span_to_error_span(span),
+    })?;
+
     let vec_bytes = n.to_bytes_le();
     Ok(vec_bytes.into_boxed_slice())
 }
 
-
 fn parse_number<const N: usize>(pair: Pair<Rule>, can_be_decimal: bool, exact_len: bool) -> Result<[u8; N], ParseError> {
     let span = pair.as_span();
-    let err_invalid_number = parse_error(ParseErrorKind::InvalidHex, span);
     let s0 = pair.as_str();
 
-    let (stripped, radix)  = match (s0.strip_prefix("0x"), can_be_decimal) {
+    let (stripped, radix) = match (s0.strip_prefix("0x"), can_be_decimal) {
         (Some(ss), _) => Ok((ss, 16)),
         (None, true)  => Ok((s0, 10)),
-        (None, false) => Err(parse_error(ParseErrorKind::CannotBeDecimal, span)),
+        (None, false) => Err(ParseError::CannotBeDecimal {
+            span: span_to_error_span(span),
+        }),
     }?;
 
     let len = stripped.len();
     if exact_len && len != (N*2) {
-        return Err(parse_error(ParseErrorKind::MustBeExactlyHexDigits(N*2, len), span))
+        return Err(ParseError::MustBeExactlyHexDigits {
+            span: span_to_error_span(span),
+            expected: N*2,
+            actual: len,
+        });
     }
 
-    let n = BigUint::parse_bytes(stripped.as_bytes(), radix).ok_or(err_invalid_number.clone())?;
+    let n = BigUint::parse_bytes(stripped.as_bytes(), radix).ok_or(ParseError::InvalidHex {
+        span: span_to_error_span(span),
+    })?;
+
     let bytes = n.to_bytes_be();
     if bytes.len() > N {
-        return Err(parse_error(ParseErrorKind::NumberTooLarge("FIXME".to_string()), span));
+        return Err(ParseError::NumberTooLarge {
+            span: span_to_error_span(span),
+            max: format!("0x{}", "F".repeat(N*2)),
+        });
     }
+
     let mut padded = [0u8; N];
     padded[N - bytes.len()..].copy_from_slice(&bytes);
     Ok(padded)
