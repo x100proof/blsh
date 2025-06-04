@@ -15,7 +15,7 @@ mod eval;
 mod parser;
 mod types;
 
-use crate::ast::{Statement, Command};
+use crate::ast::{Command, SpanInfo, Statement};
 use crate::eval::eval;
 use crate::parser::parse_program;
 use crate::types::{builtin_env, is_builtin, pretty_let_to_string, EvalError, Value};
@@ -98,7 +98,7 @@ fn main() -> Result<()> {
                 let input = line.to_string();
                 match parse_program(line) {
                     Ok(stmt) => match stmt {
-                        Statement::Let(name, expr) => handle_let(input.clone(), name, expr, &mut env),
+                        Statement::Let(name, expr, span_info) => handle_let(input.clone(), name, expr, span_info, &mut env),
                         Statement::Command(cmd) => handle_command(input.clone(), cmd, &env),
                         Statement::Expr(expr) => handle_expr(input.clone(), expr, &env),
                     },
@@ -123,9 +123,10 @@ fn colour_with(style: Style, s: String) -> String {
     }
 }
 
-fn handle_let(input: String, name: String, expr: ast::Expr, env: &mut HashMap<String, Value>) {
+fn handle_let(input: String, name: String, expr: ast::Expr, ident_meta: SpanInfo, env: &mut HashMap<String, Value>) {
     if is_builtin(&name) {
-          eprintln!("{:?}", miette::Report::new(EvalError::CannotRedefineBuiltin{ ident: expr.miette_span()}));
+          eprintln!("{:?}",
+             miette::Report::new(EvalError::CannotRedefineBuiltin{ ident: ident_meta.miette_span()}).with_source_code(input));
         return;
     }
     match eval(&expr, env) {

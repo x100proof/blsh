@@ -16,7 +16,7 @@ type ErrorSpan = (usize, usize);
 pub enum EvalError {
     #[error("Cannot redefine a built-in name")]
     CannotRedefineBuiltin {
-        #[label("identifier")]
+        #[label("Built-in identifier")]
         ident: ErrorSpan,
     },
 
