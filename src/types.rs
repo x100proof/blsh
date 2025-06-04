@@ -288,7 +288,7 @@ fn pretty_error_add_mismatch<'a>(source: &str, lhs_span: (usize, usize), rhs_spa
     // Create vertical line annotations in Rust compiler style
     let mut annotation_line1 = String::new();
     let mut annotation_line2 = String::new();
-    
+
     // First line with vertical bars
     for i in 0..=rhs_center + 1 {
         if i == lhs_center {
@@ -299,14 +299,14 @@ fn pretty_error_add_mismatch<'a>(source: &str, lhs_span: (usize, usize), rhs_spa
             annotation_line1.push(' ');
         }
     }
-    
+
     // Second line with type annotations
     // Left type annotation
     let lhs_annotation = format!("- {}", lhs_type);
     let rhs_annotation = format!("- {}", rhs_type);
-    
+
     // Add left annotation
-    for i in 0..=rhs_center + rhs_annotation.len() + 1 {
+    for mut i in 0..=rhs_center + rhs_annotation.len() + 1 {
         if i == lhs_center {
             annotation_line2.push('+');
             for (j, c) in lhs_annotation.chars().enumerate() {
