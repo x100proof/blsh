@@ -182,7 +182,12 @@ pub fn eval(expr: &Expr, env: &HashMap<String, Value>) -> Result<Value, EvalErro
                     unsafe { blst_map_to_g1(&mut result, &x, &y); }
                     Ok(Value::Point1(result))
                 }
-                _ => Err(EvalError::TypeMismatchMapToG1),
+                _ => Err(EvalError::TypeMismatchMapToG1 {
+                    span1: x_expr.miette_span(),
+                    span2: y_expr.miette_span(),
+                    type1: l.to_type(),
+                    type2: r.to_type(),
+                }),
             }
         },
 
@@ -195,7 +200,12 @@ pub fn eval(expr: &Expr, env: &HashMap<String, Value>) -> Result<Value, EvalErro
                     unsafe { blst_map_to_g2(&mut result, &x, &y); }
                     Ok(Value::Point2(result))
                 }
-                _ => Err(EvalError::TypeMismatchMapToG2),
+                _ => Err(EvalError::TypeMismatchMapToG2 {
+                    span1: x_expr.miette_span(),
+                    span2: y_expr.miette_span(),
+                    type1: l.to_type(),
+                    type2: r.to_type(),
+                }),
             }
         },
 
@@ -264,7 +274,12 @@ pub fn eval(expr: &Expr, env: &HashMap<String, Value>) -> Result<Value, EvalErro
                     unsafe { blst_p2_add_or_double(&mut out, &p1, &p2); }
                     Ok(Value::Point2(out))
                 }
-                _ => Err(EvalError::TypeMismatchPointSub),
+                _ => Err(EvalError::TypeMismatchPointSub {
+                    lhs_span: lhs.miette_span(),
+                    rhs_span: rhs.miette_span(),
+                    lhs_type: l.to_type(),
+                    rhs_type: r.to_type(),
+                }),
             }
         }
         Expr::Neg(inner, _) => {
@@ -288,11 +303,17 @@ pub fn eval(expr: &Expr, env: &HashMap<String, Value>) -> Result<Value, EvalErro
                     unsafe { blst_fp2_cneg(&mut fp2_out, &fp2, true); }
                     Ok(Value::Coord2(fp2_out))
                 }
-                _ => Err(EvalError::TypeMismatchNeg),
+                _ => Err(EvalError::TypeMismatchNeg {
+                    span: inner.miette_span(),
+                    expr_type: v.to_type(),
+                }),
             }
         }
         Expr::Var(name, _) => {
-            env.get(name).cloned().ok_or(EvalError::UnknownIdent(name.clone()))
+            env.get(name).cloned().ok_or(EvalError::UnknownIdent {
+                span: expr.miette_span(),
+                name: name.clone(),
+            })
         }
     }
 }
