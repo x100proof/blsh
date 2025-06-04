@@ -10,7 +10,6 @@ use ansi_term::Colour::{Yellow, Blue, Cyan, Fixed};
 use ansi_term::Style;
 use atty::Stream;
 
-
 type ErrorSpan = (usize, usize);
 
 #[derive(Debug, Error, Diagnostic)]
@@ -84,7 +83,11 @@ pub enum EvalError {
     },
 
     #[error("Invalid compressed point")]
-    InvalidCompressedPoint,
+    InvalidCompressedPoint {
+        #[label("{pt_type}")]
+        span: ErrorSpan,
+        pt_type: String,
+    },
 
     #[error("No square root for this value")]
     NotASquare {
@@ -108,10 +111,24 @@ pub enum EvalError {
     },
 
     #[error("map_to_g1 can only be applied to Coord1 types")]
-    TypeMismatchMapToG1,
+    TypeMismatchMapToG1 {
+        #[label("{type1}")]
+        span1: ErrorSpan,
+        #[label("{type2}")]
+        span2: ErrorSpan,
+        type1: String,
+        type2: String,
+    },
 
     #[error("map_to_g2 can only be applied to Coord2 types")]
-    TypeMismatchMapToG2,
+    TypeMismatchMapToG2 {
+        #[label("{type1}")]
+        span1: ErrorSpan,
+        #[label("{type2}")]
+        span2: ErrorSpan,
+        type1: String,
+        type2: String,
+    },
 
     #[error("Can only add expressions of the same type")]
     TypeMismatchPointAdd {
@@ -127,13 +144,28 @@ pub enum EvalError {
     },
 
     #[error("Can only negate Point1, Point2, Coord1, Coord2")]
-    TypeMismatchNeg,
+    TypeMismatchNeg {
+        #[label("{expr_type}")]
+        span: ErrorSpan,
+        expr_type: String
+    },
 
     #[error("Can only subtract points (of the same type)")]
-    TypeMismatchPointSub,
+    TypeMismatchPointSub {
+        #[label("{lhs_type}")]
+        lhs_span: ErrorSpan,
 
-    #[error("Unknown identifier: {0}")]
-    UnknownIdent(String),
+        #[label("{rhs_type}")]
+        rhs_span: ErrorSpan,
+
+        lhs_type: String,
+        rhs_type: String,
+    },
+
+    #[error("Unknown identifier")]
+    UnknownIdent {
+        span: ErrorSpan
+    },
 }
 
 #[derive(Clone, Debug)]

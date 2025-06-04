@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use crate::ast::{Expr};
-use crate::types::{fp_to_hex, EvalError, Value};
+use crate::types::{EvalError, Value};
 use blst::*;
 use num_bigint::BigUint;
 use log::debug;
@@ -309,7 +309,10 @@ fn check_deserialize_error(err: BLST_ERROR, span: (usize, usize), pt_type: &str)
             span,
             pt_type: pt_type.to_string(),
         },
-        _ => EvalError::InvalidCompressedPoint,
+        _ => EvalError::InvalidCompressedPoint {
+            span,
+            pt_type: pt_type.to_string(),
+        },
     };
     Err(e)
 }
