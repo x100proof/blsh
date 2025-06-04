@@ -11,21 +11,23 @@ use ansi_term::Style;
 use atty::Stream;
 
 
+type ErrorSpan = (usize, usize);
+
 #[derive(Debug, Error, Diagnostic)]
 pub enum EvalError {
     #[error("Cannot redefine a built-in name")]
     CannotRedefineBuiltin {
         #[label("identifier")]
-        ident: (usize, usize),
+        ident: ErrorSpan,
     },
 
     #[error("Can only call `embed(<expr1>,<expr2>)` if <expr1>: Point1 and <expr2>: Point2")]
     EmbedHasIncorrectTypes {
         #[label("{type1}")]
-        span1: (usize, usize),
+        span1: ErrorSpan,
 
         #[label("{type2}")]
-        span2: (usize, usize),
+        span2: ErrorSpan,
 
         type1: String,
         type2: String,
@@ -33,25 +35,62 @@ pub enum EvalError {
     },
 
     #[error("Point is not on curve")]
-    PointNotOnCurve,
+    PointNotOnCurve {
+        #[label("{pt_type}")]
+        span: ErrorSpan,
+        pt_type: String,
+    },
 
     #[error("Point is not in group")]
-    PointNotInGroup,
+    PointNotInGroup {
+        #[label("{pt_type}")]
+        span: ErrorSpan,
+        pt_type: String,
+    },
 
-    #[error("Points can only contain Coord1/Coord2 values")]
-    PointCanOnlyContainCoord,
+    #[error("{point_type} can only contain {expected_coord_type} values")]
+    PointCanOnlyContainCoord {
+        #[label("{x_coord_type}")]
+        x_span: ErrorSpan,
+        #[label("{y_coord_type}")]
+        y_span: ErrorSpan,
+        point_type: String,
+        expected_coord_type: String,
+        x_coord_type: String,
+        y_coord_type: String,
+    },
 
     #[error("Coordinate pairs can only contain Coord1 or Coord6 values")]
-    PairCanOnlyContainCoord1Or6,
+    PairCanOnlyContainCoord1Or6 {
+        #[label("{x_coord_type}")]
+        x_span: ErrorSpan,
+        #[label("{y_coord_type}")]
+        y_span: ErrorSpan,
+        x_coord_type: String,
+        y_coord_type: String,
+    },
 
     #[error("Coordinate triples can only contain Coord2 values")]
-    TripleCanOnlyContainCoord2,
+    TripleCanOnlyContainCoord2 {
+        #[label("{x_coord_type}")]
+        x_span: ErrorSpan,
+        #[label("{y_coord_type}")]
+        y_span: ErrorSpan,
+        #[label("{z_coord_type}")]
+        z_span: ErrorSpan,
+        x_coord_type: String,
+        y_coord_type: String,
+        z_coord_type: String,
+    },
 
     #[error("Invalid compressed point")]
     InvalidCompressedPoint,
 
-    #[error("No square root for {0}")]
-    NotASquare(String),
+    #[error("No square root for this value")]
+    NotASquare {
+        #[label("Coord1")]
+        span: ErrorSpan,
+    },
 
     #[error("Expected Coord1 operand")]
     TypeMismatchCoord1 ,
@@ -59,10 +98,10 @@ pub enum EvalError {
     #[error("Scalars can only be multiplied with points")]
     TypeMismatchMul {
         #[label("{lhs_type}")]
-        lhs_span: (usize, usize),
+        lhs_span: ErrorSpan,
 
         #[label("{rhs_type}")]
-        rhs_span: (usize, usize),
+        rhs_span: ErrorSpan,
 
         lhs_type: String,
         rhs_type: String,
@@ -78,10 +117,10 @@ pub enum EvalError {
     TypeMismatchPointAdd {
 
         #[label("{lhs_type}")]
-        lhs_span: (usize, usize),
+        lhs_span: ErrorSpan,
 
         #[label("{rhs_type}")]
-        rhs_span: (usize, usize),
+        rhs_span: ErrorSpan,
 
         lhs_type: String,
         rhs_type: String,
