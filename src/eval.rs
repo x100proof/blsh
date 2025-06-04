@@ -3,18 +3,21 @@ use crate::ast::Expr;
 use crate::types::{fp_to_hex, EvalError, Value};
 use blst::*;
 use num_bigint::BigUint;
+use log::debug;
 
 pub fn eval(expr: Expr, env: &HashMap<String, Value>) -> Result<Value, EvalError> {
+    debug!("Evaluating: {:?}", expr);
+    
     match expr {
-        Expr::Scalar(bytes) => {
+        Expr::Scalar(bytes, _) => {
             Ok(Value::Scalar(bytes))
         }
-        Expr::Coord1(bytes) => {
+        Expr::Coord1(bytes, _) => {
             let mut fp = blst_fp::default();
             unsafe { blst_fp_from_bendian(&mut fp, bytes.as_ptr()) };
             Ok(Value::Coord1(fp))
         }
-        Expr::CoordPair(expr1, expr2) => {
+        Expr::CoordPair(expr1, expr2, _) => {
             let v1 = eval(*expr1, env)?;
             let v2 = eval(*expr2, env)?;
 
@@ -28,7 +31,7 @@ pub fn eval(expr: Expr, env: &HashMap<String, Value>) -> Result<Value, EvalError
                 _ => Err(EvalError::PairCanOnlyContainCoord1Or6)
             }
         }
-        Expr::CoordTriple(expr1, expr2, expr3) => {
+        Expr::CoordTriple(expr1, expr2, expr3, _) => {
             let v1 = eval(*expr1, env)?;
             let v2 = eval(*expr2, env)?;
             let v3 = eval(*expr3, env)?;
@@ -41,7 +44,7 @@ pub fn eval(expr: Expr, env: &HashMap<String, Value>) -> Result<Value, EvalError
             }
         }
 
-        Expr::Point(expr1, expr2) => {
+        Expr::Point(expr1, expr2, _) => {
             let v1 = eval(*expr1, env)?;
             let v2 = eval(*expr2, env)?;
             match (v1,v2) {
@@ -61,7 +64,7 @@ pub fn eval(expr: Expr, env: &HashMap<String, Value>) -> Result<Value, EvalError
             }
         }
 
-        Expr::Point1Compressed(bytes) => {
+        Expr::Point1Compressed(bytes, _) => {
             let mut aff = blst_p1_affine::default();
             let err = unsafe { blst_p1_uncompress(&mut aff, bytes.as_ptr()) };
             check_deserialize_error(err)?;
@@ -70,7 +73,7 @@ pub fn eval(expr: Expr, env: &HashMap<String, Value>) -> Result<Value, EvalError
             Ok(Value::Point1(p))
         }
 
-        Expr::Point1Uncompressed(bytes) => {
+        Expr::Point1Uncompressed(bytes, _) => {
             let mut aff = blst_p1_affine::default();
             let err = unsafe { blst_p1_deserialize(&mut aff, bytes.as_ptr()) };
             check_deserialize_error(err)?;
@@ -80,7 +83,7 @@ pub fn eval(expr: Expr, env: &HashMap<String, Value>) -> Result<Value, EvalError
         }
 
 
-        Expr::Point2Compressed(bytes) => {
+        Expr::Point2Compressed(bytes, _) => {
             let mut aff = blst_p2_affine::default();
             let err = unsafe { blst_p2_uncompress(&mut aff, bytes.as_ptr()) };
             check_deserialize_error(err)?;
@@ -89,7 +92,7 @@ pub fn eval(expr: Expr, env: &HashMap<String, Value>) -> Result<Value, EvalError
             Ok(Value::Point2(p))
         }
 
-        Expr::Point2Uncompressed(bytes) => {
+        Expr::Point2Uncompressed(bytes, _) => {
             let mut aff = blst_p2_affine::default();
             let err = unsafe { blst_p2_deserialize(&mut aff, bytes.as_ptr()) };
             check_deserialize_error(err)?;
@@ -98,7 +101,7 @@ pub fn eval(expr: Expr, env: &HashMap<String, Value>) -> Result<Value, EvalError
             Ok(Value::Point2(p))
         }
 
-        Expr::Embed(expr1, expr2) => {
+        Expr::Embed(expr1, expr2, _) => {
             let v1 = eval(*expr1, env)?;
             let v2 = eval(*expr2, env)?;
             match (v1, v2) {
@@ -118,7 +121,7 @@ pub fn eval(expr: Expr, env: &HashMap<String, Value>) -> Result<Value, EvalError
             }
         }
 
-        Expr::Sqrt(inner) => {
+        Expr::Sqrt(inner, _) => {
             let v = eval(*inner, env)?;
             let coord = match v {
                 Value::Coord1(fp) => fp,
@@ -136,7 +139,7 @@ pub fn eval(expr: Expr, env: &HashMap<String, Value>) -> Result<Value, EvalError
         // 100proof: I had considered just calling the primitive `map` but then you lose
         // the idea that it's a prime order subgroup. `map_to_g` didn't really work for me either
         // Hence the duplication of logic for MapToG1/MapToG2
-        Expr::MapToG1(x_expr, y_expr) => {
+        Expr::MapToG1(x_expr, y_expr, _) => {
             let l = eval(*x_expr, env)?;
             let r = eval(*y_expr, env)?;
             match (l, r) {
@@ -149,7 +152,7 @@ pub fn eval(expr: Expr, env: &HashMap<String, Value>) -> Result<Value, EvalError
             }
         },
 
-        Expr::MapToG2(x_expr,y_expr) => {
+        Expr::MapToG2(x_expr,y_expr, _) => {
             let l = eval(*x_expr, env)?;
             let r = eval(*y_expr, env)?;
             match (l, r) {
@@ -162,7 +165,7 @@ pub fn eval(expr: Expr, env: &HashMap<String, Value>) -> Result<Value, EvalError
             }
         },
 
-        Expr::Mul(lhs, rhs) => {
+        Expr::Mul(lhs, rhs, _) => {
             let l = eval(*lhs, env)?;
             let r = eval(*rhs, env)?;
             match (l, r) {
@@ -184,7 +187,7 @@ pub fn eval(expr: Expr, env: &HashMap<String, Value>) -> Result<Value, EvalError
             }
         }
 
-        Expr::Add(lhs, rhs) => {
+        Expr::Add(lhs, rhs, _) => {
             let l = eval(*lhs, env)?;
             let r = eval(*rhs, env)?;
             match (l, r) {
@@ -220,7 +223,7 @@ pub fn eval(expr: Expr, env: &HashMap<String, Value>) -> Result<Value, EvalError
                 _ => Err(EvalError::TypeMismatchPointSub),
             }
         }
-        Expr::Neg(inner) => {
+        Expr::Neg(inner, _) => {
             let v = eval(*inner, env)?;
             match v {
                 Value::Point1(mut p) => {
@@ -244,7 +247,7 @@ pub fn eval(expr: Expr, env: &HashMap<String, Value>) -> Result<Value, EvalError
                 _ => Err(EvalError::TypeMismatchNeg),
             }
         }
-        Expr::Var(name) => {
+        Expr::Var(name, _) => {
             env.get(&name).cloned().ok_or(EvalError::UnknownIdent(name))
         }
     }

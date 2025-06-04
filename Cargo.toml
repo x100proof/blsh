@@ -16,6 +16,9 @@ pretty = { git = "https://github.com/one-hundred-proof/pretty.rs", rev = "7e3bf6
 ansi_term = "0.12.1"
 atty = "0.2.14"
 terminal_size = "0.4.2"
+log = "0.4"
+env_logger = "0.10"
+chrono = "0.4"
 
 [build-dependencies]
 pest_generator = "2.8.0"
