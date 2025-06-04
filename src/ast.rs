@@ -23,7 +23,7 @@ impl ExprMeta {
     pub fn new(source: String, span: (usize, usize)) -> Self {
         Self { source, span }
     }
-    
+
     pub fn from_span(span: Span) -> Self {
         Self {
             source: span.as_str().to_string(),
@@ -41,6 +41,10 @@ impl fmt::Debug for ExprMeta {
     }
 }
 
+/*
+ *   The extra `ExprMeta` field might be a bit ugly but if we try to create e.g. a `FullExpr`
+ *   data structure that contains `Expr` and `ExprMeta` has fields we get "recursive type hell"
+ */
 #[derive(Clone)]
 pub enum Expr {
     // SkScalar([u8; 32]), // distinguished from an ordinary scalar which can be unbounded
