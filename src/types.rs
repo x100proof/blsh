@@ -258,7 +258,7 @@ pub fn pretty_let_to_string(name: &str, value: &Value) -> String {
     pretty_to_string(pretty_let(name, value))
 }
 
-fn pretty_error<'a>(source: &str, lhs_span: (usize, usize), rhs_span: (usize, usize), 
+fn pretty_error_add_mismatch<'a>(source: &str, lhs_span: (usize, usize), rhs_span: (usize, usize), 
                    lhs_type: &str, rhs_type: &str, message: &str) -> PP<'a> {
     let (lhs_start, lhs_end) = lhs_span;
     let (rhs_start, rhs_end) = rhs_span;
@@ -325,7 +325,7 @@ impl std::fmt::Display for EvalError {
                     return write!(f, "Can only add points (of the same type)");
                 }
                 
-                let error_doc = pretty_error(
+                let error_doc = pretty_error_add_mismatch(
                     source, 
                     *lhs_span, 
                     *rhs_span, 
@@ -347,6 +347,18 @@ impl std::fmt::Display for Value {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let str = pretty_to_string(pretty_value(self));
         write!(f, "{}", str)
+    }
+}
+
+pub fn value_to_type(value: &Value) -> String {
+    match value {
+        Value::Scalar(_) => "Scalar".to_string(),
+        Value::Point1(_) => "Point1".to_string(),
+        Value::Point2(_) => "Point2".to_string(),
+        Value::Coord1(_) => "Coord1".to_string(),
+        Value::Coord2(_) => "Coord2".to_string(),
+        Value::Coord6(_) => "Coord6".to_string(),
+        Value::Coord12(_) => "Coord12".to_string(),
     }
 }
 
