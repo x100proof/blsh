@@ -5,6 +5,9 @@ use rustyline::Editor;
 use rustyline::history::FileHistory;
 use ansi_term::{Colour, Style};
 use atty::Stream;
+use log::{debug, LevelFilter};
+use env_logger::Builder;
+use std::io::Write;
 
 mod ast;
 mod eval;
@@ -17,13 +20,59 @@ use crate::parser::parse_program;
 use crate::types::{builtin_env, is_builtin, pretty_let_to_string, EvalError, Value};
 
 
+// Debug configuration
+struct DebugConfig {
+    enabled: bool,
+}
+
+impl DebugConfig {
+    fn new() -> Self {
+        // Check environment variable for debug mode
+        let debug_env = std::env::var("BLSH_DEBUG").unwrap_or_else(|_| "0".to_string());
+        let enabled = debug_env == "1" || debug_env.to_lowercase() == "true";
+        
+        // Initialize logger if debug is enabled
+        if enabled {
+            let mut builder = Builder::new();
+            builder
+                .format(|buf, record| {
+                    writeln!(
+                        buf,
+                        "[{}] {} - {}",
+                        record.level(),
+                        chrono::Local::now().format("%Y-%m-%d %H:%M:%S"),
+                        record.args()
+                    )
+                })
+                .filter(None, LevelFilter::Debug)
+                .target(env_logger::Target::Stderr)
+                .init();
+            
+            debug!("Debug logging enabled");
+        }
+        
+        Self { enabled }
+    }
+    
+    fn is_enabled(&self) -> bool {
+        self.enabled
+    }
+}
+
 fn main() {
+    // Initialize debug configuration
+    let debug_config = DebugConfig::new();
+    
     let history_path = get_history_path();
     let mut rl = Editor::<(), FileHistory>::new().unwrap();
     rl.load_history(&history_path).ok();
 
     let mut env: HashMap<String, Value> = builtin_env();
     let prompt = colour_with(Colour::Green.bold(), "blsh> ".to_string());
+    
+    if debug_config.is_enabled() {
+        debug!("BLSH started with debug logging enabled");
+    }
 
     loop {
         let readline = rl.readline(&prompt);
@@ -87,6 +136,7 @@ fn handle_command(cmd: Command, env: &HashMap<String, Value>) {
 }
 
 fn handle_expr(expr: ast::Expr, env: &HashMap<String, Value>) {
+    debug!("Evaluating expression: {:?}", expr);
     match eval(expr, env) {
         Ok(result) => println!("{}", result.to_string()),
         Err(e) => handle_eval_err(e),

@@ -2,10 +2,11 @@ use pest::Parser;
 use pest::iterators::Pair;
 use pest_derive::Parser;
 use num_bigint::BigUint;
-use crate::ast::{Expr, Statement, Command};
+use crate::ast::{Expr, Statement, Command, ExprMeta};
 
 use pest::error::{Error as PestError, ErrorVariant};
 use pest::Span;
+use log::debug;
 
 #[derive(Debug, Clone)]
 pub struct ParseError {
@@ -108,15 +109,21 @@ fn parse_statement(pair: Pair<Rule>) -> Result<Statement, ParseError> {
 
 fn parse_expr(pair: Pair<Rule>) -> Result<Expr, ParseError> {
     let span = pair.as_span();
+    let source = span.as_str().to_string();
+    debug!("Parsing expression: {}", source);
+    
     match pair.as_rule() {
         Rule::expr => {
             let mut inner = pair.into_inner();
             let mut lhs = parse_expr(inner.next().unwrap())?;
             while let Some(op_pair) = inner.next() {
                 let rhs = parse_expr(inner.next().unwrap())?;
-                lhs = match op_pair.as_str() {
-                    "+" => Expr::Add(Box::new(lhs), Box::new(rhs)),
-                    "-" => Expr::Sub(Box::new(lhs), Box::new(rhs)),
+                let op_str = op_pair.as_str();
+                let meta = ExprMeta::new(source.clone(), Some((span.start(), span.end())));
+                
+                lhs = match op_str {
+                    "+" => Expr::Add(Box::new(lhs), Box::new(rhs), meta),
+                    "-" => Expr::Sub(Box::new(lhs), Box::new(rhs), meta),
                     _ => return Err(parse_error(ParseErrorKind::UnexpectedToken, span)),
                 };
             }
@@ -126,7 +133,8 @@ fn parse_expr(pair: Pair<Rule>) -> Result<Expr, ParseError> {
             let mut inner = pair.into_inner();
             let mut lhs = parse_expr(inner.next().unwrap())?;
             while let Some(rhs) = inner.next() {
-                lhs = Expr::Mul(Box::new(lhs), Box::new(parse_expr(rhs)?));
+                let meta = ExprMeta::new(source.clone(), Some((span.start(), span.end())));
+                lhs = Expr::Mul(Box::new(lhs), Box::new(parse_expr(rhs)?), meta);
             }
             Ok(lhs)
         }
@@ -134,7 +142,8 @@ fn parse_expr(pair: Pair<Rule>) -> Result<Expr, ParseError> {
             let mut inner = pair.into_inner();
             let first = inner.next().unwrap();
             if first.as_rule() == Rule::neg_expr {
-                Ok(Expr::Neg(Box::new(parse_expr(first)?)))
+                let meta = ExprMeta::new(source, Some((span.start(), span.end())));
+                Ok(Expr::Neg(Box::new(parse_expr(first)?), meta))
             } else {
                 parse_expr(first)
             }
@@ -153,29 +162,36 @@ fn parse_expr(pair: Pair<Rule>) -> Result<Expr, ParseError> {
 
 fn parse_primary(pair: Pair<Rule>) -> Result<Expr, ParseError> {
     let span = pair.as_span();
+    let source = span.as_str().to_string();
+    debug!("Parsing primary: {}", source);
+    
     match pair.as_rule() {
         Rule::scalar => {
             let inner_pair = pair.into_inner().next().unwrap();
             let bytes = parse_unbounded_number(inner_pair)?;
-            Ok(Expr::Scalar(bytes))
+            let meta = ExprMeta::from_span(span);
+            Ok(Expr::Scalar(bytes, meta))
         }
         Rule::coord1 => {
             let inner_pair = pair.into_inner().next().unwrap();
             let bytes = parse_number::<48>(inner_pair, true, false)?;
-            Ok(Expr::Coord1(bytes))
+            let meta = ExprMeta::from_span(span);
+            Ok(Expr::Coord1(bytes, meta))
         }
         Rule::coord_pair => {
             let mut inner = pair.into_inner();
             let expr1 = parse_expr(inner.next().unwrap())?;
             let expr2 = parse_expr(inner.next().unwrap())?;
-            Ok(Expr::CoordPair(Box::new(expr1), Box::new(expr2)))
+            let meta = ExprMeta::from_span(span);
+            Ok(Expr::CoordPair(Box::new(expr1), Box::new(expr2), meta))
         }
         Rule::coord_triple => {
             let mut inner = pair.into_inner();
             let expr1 = parse_expr(inner.next().unwrap())?;
             let expr2 = parse_expr(inner.next().unwrap())?;
             let expr3 = parse_expr(inner.next().unwrap())?;
-            Ok(Expr::CoordTriple(Box::new(expr1), Box::new(expr2),Box::new(expr3)))
+            let meta = ExprMeta::from_span(span);
+            Ok(Expr::CoordTriple(Box::new(expr1), Box::new(expr2), Box::new(expr3), meta))
         }
 
         // Package it up as if it's a CoordTriple of CoordPair
@@ -187,10 +203,17 @@ fn parse_primary(pair: Pair<Rule>) -> Result<Expr, ParseError> {
             let expr4 = parse_expr(inner.next().unwrap())?;
             let expr5 = parse_expr(inner.next().unwrap())?;
             let expr6 = parse_expr(inner.next().unwrap())?;
+            
+            let meta1 = ExprMeta::new(source.clone(), Some((span.start(), span.end())));
+            let meta2 = ExprMeta::new(source.clone(), Some((span.start(), span.end())));
+            let meta3 = ExprMeta::new(source.clone(), Some((span.start(), span.end())));
+            let meta_outer = ExprMeta::from_span(span);
+            
             Ok(Expr::CoordTriple(
-                Box::new(Expr::CoordPair(Box::new(expr1), Box::new(expr2))),
-                Box::new(Expr::CoordPair(Box::new(expr3), Box::new(expr4))),
-                Box::new(Expr::CoordPair(Box::new(expr5), Box::new(expr6))),
+                Box::new(Expr::CoordPair(Box::new(expr1), Box::new(expr2), meta1)),
+                Box::new(Expr::CoordPair(Box::new(expr3), Box::new(expr4), meta2)),
+                Box::new(Expr::CoordPair(Box::new(expr5), Box::new(expr6), meta3)),
+                meta_outer
             ))
         }
 
@@ -210,21 +233,36 @@ fn parse_primary(pair: Pair<Rule>) -> Result<Expr, ParseError> {
             let expr11 = parse_expr(inner.next().unwrap())?;
             let expr12 = parse_expr(inner.next().unwrap())?;
 
+            let meta_cp1 = ExprMeta::new(source.clone(), Some((span.start(), span.end())));
+            let meta_cp2 = ExprMeta::new(source.clone(), Some((span.start(), span.end())));
+            let meta_cp3 = ExprMeta::new(source.clone(), Some((span.start(), span.end())));
+            let meta_cp4 = ExprMeta::new(source.clone(), Some((span.start(), span.end())));
+            let meta_cp5 = ExprMeta::new(source.clone(), Some((span.start(), span.end())));
+            let meta_cp6 = ExprMeta::new(source.clone(), Some((span.start(), span.end())));
+            
+            let meta_ct1 = ExprMeta::new(source.clone(), Some((span.start(), span.end())));
+            let meta_ct2 = ExprMeta::new(source.clone(), Some((span.start(), span.end())));
+            
+            let meta_outer = ExprMeta::from_span(span);
+
             Ok(Expr::CoordPair(
                 Box::new(
                     Expr::CoordTriple(
-                        Box::new(Expr::CoordPair(Box::new(expr01), Box::new(expr02))),
-                        Box::new(Expr::CoordPair(Box::new(expr03), Box::new(expr04))),
-                        Box::new(Expr::CoordPair(Box::new(expr05), Box::new(expr06))),
+                        Box::new(Expr::CoordPair(Box::new(expr01), Box::new(expr02), meta_cp1)),
+                        Box::new(Expr::CoordPair(Box::new(expr03), Box::new(expr04), meta_cp2)),
+                        Box::new(Expr::CoordPair(Box::new(expr05), Box::new(expr06), meta_cp3)),
+                        meta_ct1
                     )
                 ),
                 Box::new(
                     Expr::CoordTriple(
-                        Box::new(Expr::CoordPair(Box::new(expr07), Box::new(expr08))),
-                        Box::new(Expr::CoordPair(Box::new(expr09), Box::new(expr10))),
-                        Box::new(Expr::CoordPair(Box::new(expr11), Box::new(expr12))),
+                        Box::new(Expr::CoordPair(Box::new(expr07), Box::new(expr08), meta_cp4)),
+                        Box::new(Expr::CoordPair(Box::new(expr09), Box::new(expr10), meta_cp5)),
+                        Box::new(Expr::CoordPair(Box::new(expr11), Box::new(expr12), meta_cp6)),
+                        meta_ct2
                     )
-                )
+                ),
+                meta_outer
             ))
         }
 
@@ -232,37 +270,43 @@ fn parse_primary(pair: Pair<Rule>) -> Result<Expr, ParseError> {
             let mut inner = pair.into_inner();
             let expr1 = parse_expr(inner.next().unwrap())?; // FIXME: better error messagesa
             let expr2 = parse_expr(inner.next().unwrap())?;
-            Ok(Expr::Point(Box::new(expr1), Box::new(expr2)))
+            let meta = ExprMeta::from_span(span);
+            Ok(Expr::Point(Box::new(expr1), Box::new(expr2), meta))
         }
 
         Rule::compressed_point1 => {
             let inner_pair = pair.into_inner().next().unwrap();
-            let bytes = parse_number::<48>(inner_pair, false,  true)?;
-            Ok(Expr::Point1Compressed(bytes))
+            let bytes = parse_number::<48>(inner_pair, false, true)?;
+            let meta = ExprMeta::from_span(span);
+            Ok(Expr::Point1Compressed(bytes, meta))
         }
 
         Rule::uncompressed_point1 => {
             let inner_pair = pair.into_inner().next().unwrap();
             let bytes = parse_number::<96>(inner_pair, false, true)?;
-            Ok(Expr::Point1Uncompressed(bytes))
+            let meta = ExprMeta::from_span(span);
+            Ok(Expr::Point1Uncompressed(bytes, meta))
         }
 
         Rule::compressed_point2 => {
             let inner_pair = pair.into_inner().next().unwrap();
             let bytes = parse_number::<96>(inner_pair, false, true)?;
-            Ok(Expr::Point2Compressed(bytes))
+            let meta = ExprMeta::from_span(span);
+            Ok(Expr::Point2Compressed(bytes, meta))
         }
 
         Rule::uncompressed_point2 => {
             let inner_pair = pair.into_inner().next().unwrap();
-            let bytes = parse_number::<192>(inner_pair,  false, true)?;
-            Ok(Expr::Point2Uncompressed(bytes))
+            let bytes = parse_number::<192>(inner_pair, false, true)?;
+            let meta = ExprMeta::from_span(span);
+            Ok(Expr::Point2Uncompressed(bytes, meta))
         }
 
         Rule::sqrt => {
             let inner = pair.into_inner().next().unwrap();
             let arg = parse_expr(inner)?;
-            Ok(Expr::Sqrt(Box::new(arg)))
+            let meta = ExprMeta::from_span(span);
+            Ok(Expr::Sqrt(Box::new(arg), meta))
         }
 
         // 100proof: I'm doubling up on logic here but the naming aligns with `blst` so
@@ -271,24 +315,31 @@ fn parse_primary(pair: Pair<Rule>) -> Result<Expr, ParseError> {
             let mut inner = pair.into_inner();
             let x_expr = parse_expr(inner.next().unwrap())?;
             let y_expr = parse_expr(inner.next().unwrap())?;
-            Ok(Expr::MapToG1(Box::new(x_expr), Box::new(y_expr)))
+            let meta = ExprMeta::from_span(span);
+            Ok(Expr::MapToG1(Box::new(x_expr), Box::new(y_expr), meta))
         }
 
         Rule::map_to_g2 => {
             let mut inner = pair.into_inner();
             let x_expr = parse_expr(inner.next().unwrap())?;
             let y_expr = parse_expr(inner.next().unwrap())?;
-            Ok(Expr::MapToG2(Box::new(x_expr), Box::new(y_expr)))
+            let meta = ExprMeta::from_span(span);
+            Ok(Expr::MapToG2(Box::new(x_expr), Box::new(y_expr), meta))
         }
 
         Rule::embed => {
             let mut inner = pair.into_inner();
             let p1 = parse_expr(inner.next().unwrap())?;
             let p2 = parse_expr(inner.next().unwrap())?;
-            Ok(Expr::Embed(Box::new(p1), Box::new(p2)))
+            let meta = ExprMeta::from_span(span);
+            Ok(Expr::Embed(Box::new(p1), Box::new(p2), meta))
         }
 
-        Rule::ident => Ok(Expr::Var(parse_ident(pair)?)),
+        Rule::ident => {
+            let name = parse_ident(pair)?;
+            let meta = ExprMeta::from_span(span);
+            Ok(Expr::Var(name, meta))
+        },
         // Rule::expr => parse_expr(pair), // seems to be handled up in parse_expr for some reason
         _ => Err(parse_error(ParseErrorKind::UnexpectedToken, span)),
     }

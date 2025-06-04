@@ -204,7 +204,7 @@ pub fn eval(expr: Expr, env: &HashMap<String, Value>) -> Result<Value, EvalError
                 _ => Err(EvalError::TypeMismatchPointAdd),
             }
         }
-        Expr::Sub(lhs, rhs) => {
+        Expr::Sub(lhs, rhs, _) => {
             let l = eval(*lhs, env)?;
             let r = eval(*rhs, env)?;
             match (l, r) {
