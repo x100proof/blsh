@@ -5,30 +5,6 @@ use blst::*;
 use num_bigint::BigUint;
 use log::debug;
 
-/// Extract metadata from an expression
-fn expr_meta(expr: &Expr) -> &ExprMeta {
-    match expr {
-        Expr::Scalar(_, meta) |
-        Expr::Coord1(_, meta) |
-        Expr::Point1Compressed(_, meta) |
-        Expr::Point1Uncompressed(_, meta) |
-        Expr::Point2Compressed(_, meta) |
-        Expr::Point2Uncompressed(_, meta) |
-        Expr::Point(_, _, meta) |
-        Expr::CoordPair(_, _, meta) |
-        Expr::CoordTriple(_, _, _, meta) |
-        Expr::Embed(_, _, meta) |
-        Expr::Sqrt(_, meta) |
-        Expr::MapToG1(_, _, meta) |
-        Expr::MapToG2(_, _, meta) |
-        Expr::Mul(_, _, meta) |
-        Expr::Add(_, _, meta) |
-        Expr::Sub(_, _, meta) |
-        Expr::Neg(_, meta) |
-        Expr::Var(_, meta) => meta
-    }
-}
-
 pub fn eval(expr: Expr, env: &HashMap<String, Value>) -> Result<Value, EvalError> {
     debug!("Evaluating: {:?}", expr);
 
@@ -229,14 +205,25 @@ pub fn eval(expr: Expr, env: &HashMap<String, Value>) -> Result<Value, EvalError
                     let lhs_type = value_to_type(&lhsv);
                     let rhs_type = value_to_type(&rhsv);
 
-                    // Get metadata from expressions
-                    let lhs_meta = expr_meta(&lhs);
-                    let rhs_meta = expr_meta(&rhs);
+                    // Get metadata directly from expressions
+                    let lhs_meta = match &*lhs {
+                        Expr::Add(_, _, m) | Expr::Point(_, _, m) | 
+                        Expr::Point1Compressed(_, m) | Expr::Point1Uncompressed(_, m) |
+                        Expr::Point2Compressed(_, m) | Expr::Point2Uncompressed(_, m) => m.span,
+                        _ => meta.span, // Fallback to parent span if needed
+                    };
+                    
+                    let rhs_meta = match &*rhs {
+                        Expr::Add(_, _, m) | Expr::Point(_, _, m) | 
+                        Expr::Point1Compressed(_, m) | Expr::Point1Uncompressed(_, m) |
+                        Expr::Point2Compressed(_, m) | Expr::Point2Uncompressed(_, m) => m.span,
+                        _ => meta.span, // Fallback to parent span if needed
+                    };
 
                     Err(EvalError::TypeMismatchPointAdd {
-                        source: meta.source,
-                        lhs_span: lhs_meta.span,
-                        rhs_span: rhs_meta.span,
+                        source: meta.source.clone(),
+                        lhs_span: lhs_meta,
+                        rhs_span: rhs_meta,
                         lhs_type,
                         rhs_type,
                     })
