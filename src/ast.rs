@@ -16,18 +16,18 @@ pub enum Command {
 #[derive(Clone)]
 pub struct ExprMeta {
     pub source: String,
-    pub span: Option<(usize, usize)>, // start and end positions
+    pub span: (usize, usize), // start and end positions
 }
 
 impl ExprMeta {
-    pub fn new(source: String, span: Option<(usize, usize)>) -> Self {
+    pub fn new(source: String, span: (usize, usize)) -> Self {
         Self { source, span }
     }
     
     pub fn from_span(span: Span) -> Self {
         Self {
             source: span.as_str().to_string(),
-            span: Some((span.start(), span.end())),
+            span: (span.start(), span.end()),
         }
     }
 }
@@ -35,9 +35,8 @@ impl ExprMeta {
 impl fmt::Debug for ExprMeta {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "\"{}\"", self.source)?;
-        if let Some((start, end)) = self.span {
-            write!(f, " ({},{})", start, end)?;
-        }
+        let (start, end) = self.span;
+        write!(f, " ({},{})", start, end)?;
         Ok(())
     }
 }
