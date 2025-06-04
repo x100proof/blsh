@@ -30,7 +30,7 @@ impl DebugConfig {
         // Check environment variable for debug mode
         let debug_env = std::env::var("BLSH_DEBUG").unwrap_or_else(|_| "0".to_string());
         let enabled = debug_env == "1" || debug_env.to_lowercase() == "true";
-        
+
         // Initialize logger if debug is enabled
         if enabled {
             let mut builder = Builder::new();
@@ -44,16 +44,17 @@ impl DebugConfig {
                         record.args()
                     )
                 })
-                .filter(None, LevelFilter::Debug)
+                .filter(Some("blsh"), LevelFilter::Debug) // default to just `blsh` crate
+                .parse_default_env() // Use RUST_LOG to override
                 .target(env_logger::Target::Stderr)
                 .init();
-            
+
             debug!("Debug logging enabled");
         }
-        
+
         Self { enabled }
     }
-    
+
     fn is_enabled(&self) -> bool {
         self.enabled
     }
@@ -62,14 +63,14 @@ impl DebugConfig {
 fn main() {
     // Initialize debug configuration
     let debug_config = DebugConfig::new();
-    
+
     let history_path = get_history_path();
     let mut rl = Editor::<(), FileHistory>::new().unwrap();
     rl.load_history(&history_path).ok();
 
     let mut env: HashMap<String, Value> = builtin_env();
     let prompt = colour_with(Colour::Green.bold(), "blsh> ".to_string());
-    
+
     if debug_config.is_enabled() {
         debug!("BLSH started with debug logging enabled");
     }
