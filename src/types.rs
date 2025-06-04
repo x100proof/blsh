@@ -23,7 +23,13 @@ pub enum EvalError {
     TypeMismatchMul,
     TypeMismatchMapToG1,
     TypeMismatchMapToG2,
-    TypeMismatchPointAdd,
+    TypeMismatchPointAdd {
+        source: String,
+        lhs_span: (usize, usize),
+        rhs_span: (usize, usize),
+        lhs_type: String,
+        rhs_type: String,
+    },
     TypeMismatchNeg,
     TypeMismatchPointSub,
     UnknownIdent(String),
@@ -252,6 +258,52 @@ pub fn pretty_let_to_string(name: &str, value: &Value) -> String {
     pretty_to_string(pretty_let(name, value))
 }
 
+fn pretty_error<'a>(source: &str, lhs_span: (usize, usize), rhs_span: (usize, usize), 
+                   lhs_type: &str, rhs_type: &str, message: &str) -> PP<'a> {
+    let (lhs_start, lhs_end) = lhs_span;
+    let (rhs_start, rhs_end) = rhs_span;
+    
+    // Source line
+    let source_pp = PP(RcDoc::text(source.to_string()));
+    
+    // Underlines for LHS and RHS
+    let lhs_underline = concat(vec![
+        PP(RcDoc::text(" ".repeat(lhs_start))),
+        styled(&"^".repeat(lhs_end - lhs_start), ansi_term::Colour::Red.bold())
+    ]);
+    
+    let rhs_underline = concat(vec![
+        PP(RcDoc::text(" ".repeat(rhs_start))),
+        styled(&"^".repeat(rhs_end - rhs_start), ansi_term::Colour::Red.bold())
+    ]);
+    
+    // Type annotations
+    let lhs_type_pos = lhs_start + (lhs_end - lhs_start) / 2 - lhs_type.len() / 2;
+    let lhs_type_pp = concat(vec![
+        PP(RcDoc::text(" ".repeat(lhs_type_pos))),
+        type_pp(lhs_type)
+    ]);
+    
+    let rhs_type_pos = rhs_start + (rhs_end - rhs_start) / 2 - rhs_type.len() / 2;
+    let rhs_type_pp = concat(vec![
+        PP(RcDoc::text(" ".repeat(rhs_type_pos))),
+        type_pp(rhs_type)
+    ]);
+    
+    // Error message
+    let error_pp = styled(&format!("Error: {}", message), ansi_term::Colour::Red.bold());
+    
+    // Combine everything
+    concat(vec![
+        source_pp, line(),
+        lhs_underline, line(),
+        lhs_type_pp, line(),
+        rhs_underline, line(),
+        rhs_type_pp, line(),
+        error_pp
+    ])
+}
+
 impl std::fmt::Display for EvalError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -268,7 +320,22 @@ impl std::fmt::Display for EvalError {
             EvalError::TypeMismatchMul          => write!(f, "Scalars can only be multiplied with points"),
             EvalError::TypeMismatchMapToG1     => write!(f, "map_to_g1 can only be applied to Coord1 types"),
             EvalError::TypeMismatchMapToG2     => write!(f, "map_to_g2 can only be applied to Coord2 types"),
-            EvalError::TypeMismatchPointAdd    => write!(f, "Can only add points (of the same type)"),
+            EvalError::TypeMismatchPointAdd { source, lhs_span, rhs_span, lhs_type, rhs_type } => {
+                if !supports_color() {
+                    return write!(f, "Can only add points (of the same type)");
+                }
+                
+                let error_doc = pretty_error(
+                    source, 
+                    *lhs_span, 
+                    *rhs_span, 
+                    lhs_type, 
+                    rhs_type, 
+                    "Can only add points (of the same type)"
+                );
+                
+                write!(f, "{}", pretty_to_string(error_doc))
+            },
             EvalError::TypeMismatchNeg         => write!(f, "Can only negate Point1, Point2, Coord1, Coord2"),
             EvalError::TypeMismatchPointSub    => write!(f, "Can only subtract points (of the same type)"),
             EvalError::UnknownIdent(s) => write!(f, "Unknown identifier: {}", s),
