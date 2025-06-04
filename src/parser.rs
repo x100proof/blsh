@@ -108,10 +108,9 @@ fn parse_statement(pair: Pair<Rule>) -> Result<Statement, ParseError> {
 }
 
 fn parse_expr(pair: Pair<Rule>) -> Result<Expr, ParseError> {
-    let span = pair.as_span();
-    let source = span.as_str().to_string();
-    debug!("Parsing expression: {}", source);
-    
+    let span  = pair.as_span();
+    debug!("Parsing expression: {:?}", pair);
+
     match pair.as_rule() {
         Rule::expr => {
             let mut inner = pair.into_inner();
@@ -119,8 +118,8 @@ fn parse_expr(pair: Pair<Rule>) -> Result<Expr, ParseError> {
             while let Some(op_pair) = inner.next() {
                 let rhs = parse_expr(inner.next().unwrap())?;
                 let op_str = op_pair.as_str();
-                let meta = ExprMeta::new(source.clone(), (span.start(), span.end()));
-                
+                let meta = lhs.meta().merge(rhs.meta());
+                // debug!("parse lhs: {:?}, rhs: {:?}, span: {:?}, lhs_span: {:?}", lhs, rhs, span, lhs_span);
                 lhs = match op_str {
                     "+" => Expr::Add(Box::new(lhs), Box::new(rhs), meta),
                     "-" => Expr::Sub(Box::new(lhs), Box::new(rhs), meta),
@@ -132,9 +131,10 @@ fn parse_expr(pair: Pair<Rule>) -> Result<Expr, ParseError> {
         Rule::mul_expr => {
             let mut inner = pair.into_inner();
             let mut lhs = parse_expr(inner.next().unwrap())?;
-            while let Some(rhs) = inner.next() {
-                let meta = ExprMeta::new(source.clone(), (span.start(), span.end()));
-                lhs = Expr::Mul(Box::new(lhs), Box::new(parse_expr(rhs)?), meta);
+            while let Some(rhs_pair) = inner.next() {
+                let rhs = parse_expr(rhs_pair)?;
+                let meta = lhs.meta().merge(rhs.meta());
+                lhs = Expr::Mul(Box::new(lhs), Box::new(rhs), meta);
             }
             Ok(lhs)
         }
@@ -142,7 +142,7 @@ fn parse_expr(pair: Pair<Rule>) -> Result<Expr, ParseError> {
             let mut inner = pair.into_inner();
             let first = inner.next().unwrap();
             if first.as_rule() == Rule::neg_expr {
-                let meta = ExprMeta::new(source, (span.start(), span.end()));
+                let meta = ExprMeta::from_span(span);
                 Ok(Expr::Neg(Box::new(parse_expr(first)?), meta))
             } else {
                 parse_expr(first)
@@ -162,9 +162,9 @@ fn parse_expr(pair: Pair<Rule>) -> Result<Expr, ParseError> {
 
 fn parse_primary(pair: Pair<Rule>) -> Result<Expr, ParseError> {
     let span = pair.as_span();
-    let source = span.as_str().to_string();
+    let source = span.get_input().to_string();
     debug!("Parsing primary: {}", source);
-    
+
     match pair.as_rule() {
         Rule::scalar => {
             let inner_pair = pair.into_inner().next().unwrap();
@@ -203,12 +203,12 @@ fn parse_primary(pair: Pair<Rule>) -> Result<Expr, ParseError> {
             let expr4 = parse_expr(inner.next().unwrap())?;
             let expr5 = parse_expr(inner.next().unwrap())?;
             let expr6 = parse_expr(inner.next().unwrap())?;
-            
-            let meta1 = ExprMeta::new(source.clone(), (span.start(), span.end()));
-            let meta2 = ExprMeta::new(source.clone(), (span.start(), span.end()));
-            let meta3 = ExprMeta::new(source.clone(), (span.start(), span.end()));
+
+            let meta1 = ExprMeta::from_span(span);
+            let meta2 = ExprMeta::from_span(span);
+            let meta3 = ExprMeta::from_span(span);
             let meta_outer = ExprMeta::from_span(span);
-            
+
             Ok(Expr::CoordTriple(
                 Box::new(Expr::CoordPair(Box::new(expr1), Box::new(expr2), meta1)),
                 Box::new(Expr::CoordPair(Box::new(expr3), Box::new(expr4), meta2)),
@@ -233,16 +233,15 @@ fn parse_primary(pair: Pair<Rule>) -> Result<Expr, ParseError> {
             let expr11 = parse_expr(inner.next().unwrap())?;
             let expr12 = parse_expr(inner.next().unwrap())?;
 
-            let meta_cp1 = ExprMeta::new(source.clone(), (span.start(), span.end()));
-            let meta_cp2 = ExprMeta::new(source.clone(), (span.start(), span.end()));
-            let meta_cp3 = ExprMeta::new(source.clone(), (span.start(), span.end()));
-            let meta_cp4 = ExprMeta::new(source.clone(), (span.start(), span.end()));
-            let meta_cp5 = ExprMeta::new(source.clone(), (span.start(), span.end()));
-            let meta_cp6 = ExprMeta::new(source.clone(), (span.start(), span.end()));
-            
-            let meta_ct1 = ExprMeta::new(source.clone(), (span.start(), span.end()));
-            let meta_ct2 = ExprMeta::new(source.clone(), (span.start(), span.end()));
-            
+            let meta_cp1 = ExprMeta::from_span(span);
+            let meta_cp2 = ExprMeta::from_span(span);
+            let meta_cp3 = ExprMeta::from_span(span);
+            let meta_cp4 = ExprMeta::from_span(span);
+            let meta_cp5 = ExprMeta::from_span(span);
+            let meta_cp6 = ExprMeta::from_span(span);
+            let meta_ct1 = ExprMeta::from_span(span);
+            let meta_ct2 = ExprMeta::from_span(span);
+
             let meta_outer = ExprMeta::from_span(span);
 
             Ok(Expr::CoordPair(

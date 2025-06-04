@@ -1,13 +1,14 @@
-use std::collections::HashMap;
-use std::path::PathBuf;
-use std::fs;
-use rustyline::Editor;
-use rustyline::history::FileHistory;
 use ansi_term::{Colour, Style};
 use atty::Stream;
-use log::{debug, LevelFilter};
 use env_logger::Builder;
+use log::{debug, LevelFilter};
+use miette::{self, Result};
+use rustyline::Editor;
+use rustyline::history::FileHistory;
+use std::collections::HashMap;
+use std::fs;
 use std::io::Write;
+use std::path::PathBuf;
 
 mod ast;
 mod eval;
@@ -60,7 +61,14 @@ impl DebugConfig {
     }
 }
 
-fn main() {
+fn main() -> Result<()> {
+    // Initialize miette
+    miette::set_hook(Box::new(|_| Box::new(miette::MietteHandlerOpts::new()
+        .context_lines(1)
+        .tab_width(2)
+        .unicode(true)
+        .build()))).unwrap();
+
     // Initialize debug configuration
     let debug_config = DebugConfig::new();
 
@@ -87,13 +95,14 @@ fn main() {
                 if line == "exit" || line == "quit" {
                     break;
                 }
+                let input = line.to_string();
                 match parse_program(line) {
                     Ok(stmt) => match stmt {
-                        Statement::Let(name, expr) => handle_let(name, expr, &mut env),
-                        Statement::Command(cmd) => handle_command(cmd, &env),
-                        Statement::Expr(expr) => handle_expr(expr, &env),
+                        Statement::Let(name, expr) => handle_let(input, name, expr, &mut env),
+                        Statement::Command(cmd) => handle_command(input, cmd, &env),
+                        Statement::Expr(expr) => handle_expr(input, expr, &env),
                     },
-                    Err(e) => println!("{}", colour_with(Colour::Red.bold(), e.to_string())),
+                    Err(e) => println!("{}", e.to_string()),
                 }
             }
             Err(_) => break,
@@ -101,6 +110,8 @@ fn main() {
     }
 
     rl.save_history(&history_path).ok();
+
+    Ok(())
 }
 
 
@@ -112,9 +123,9 @@ fn colour_with(style: Style, s: String) -> String {
     }
 }
 
-fn handle_let(name: String, expr: ast::Expr, env: &mut HashMap<String, Value>) {
+fn handle_let(input: String, name: String, expr: ast::Expr, env: &mut HashMap<String, Value>) {
     if is_builtin(&name) {
-        println!("Error: {}", EvalError::CannotRedefineBuiltin);
+          eprintln!("{:?}", miette::Report::new(EvalError::CannotRedefineBuiltin{ ident: expr.miette_span()}));
         return;
     }
     match eval(&expr, env) {
@@ -123,29 +134,29 @@ fn handle_let(name: String, expr: ast::Expr, env: &mut HashMap<String, Value>) {
             let output = pretty_let_to_string(&name, &value);
             println!("{}", output);
         }
-        Err(e) => handle_eval_err(e),
+        Err(e) => handle_eval_err(input, e),
     }
 }
 
-fn handle_command(cmd: Command, env: &HashMap<String, Value>) {
+fn handle_command(input: String, cmd: Command, env: &HashMap<String, Value>) {
     match cmd {
         Command::Info(expr) => match eval(&expr, env) {
             Ok(val) => println!("{}", val.describe()),
-            Err(e) => handle_eval_err(e),
+            Err(e) => handle_eval_err(input, e),
         }
     }
 }
 
-fn handle_expr(expr: ast::Expr, env: &HashMap<String, Value>) {
+fn handle_expr(input: String, expr: ast::Expr, env: &HashMap<String, Value>) {
     debug!("Evaluating expression: {:?}", expr);
     match eval(&expr, env) {
         Ok(result) => println!("{}", result.to_string()),
-        Err(e) => handle_eval_err(e),
+        Err(e) => handle_eval_err(input, e),
     }
 }
 
-fn handle_eval_err(e: EvalError) {
-    println!("{}", colour_with(Colour::Red.bold(), e.to_string()))
+fn handle_eval_err(input: String, e: EvalError) {
+    eprintln!("{:?}", miette::Report::new(e).with_source_code(input));
 }
 
 fn supports_colour() -> bool {

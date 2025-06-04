@@ -19,6 +19,8 @@ terminal_size = "0.4.2"
 log = "0.4"
 env_logger = "0.10"
 chrono = "0.4"
+miette = { version = "7.6.0", features = ["fancy"] }
+thiserror = "2.0.12"
 
 [build-dependencies]
 pest_generator = "2.8.0"

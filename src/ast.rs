@@ -15,28 +15,28 @@ pub enum Command {
 
 #[derive(Clone)]
 pub struct ExprMeta {
-    pub source: String,
     pub span: (usize, usize), // start and end positions
 }
 
 impl ExprMeta {
-    pub fn new(source: String, span: (usize, usize)) -> Self {
-        Self { source, span }
-    }
 
     pub fn from_span(span: Span) -> Self {
         Self {
-            source: span.as_str().to_string(),
             span: (span.start(), span.end()),
+        }
+    }
+
+    pub fn merge(&self, other: &Self) -> Self {
+        Self {
+           span: (self.span.0, other.span.1)
         }
     }
 }
 
 impl fmt::Debug for ExprMeta {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "\"{}\"", self.source)?;
         let (start, end) = self.span;
-        write!(f, " ({},{})", start, end)?;
+        write!(f, "ExprMeta ({},{})", start, end)?;
         Ok(())
     }
 }
@@ -93,7 +93,15 @@ impl Expr {
             Expr::Var(_, meta) => meta,
         }
     }
+
+    pub fn miette_span(&self) -> (usize, usize) {
+        let span = self.meta().span;
+        (span.0, span.1 - span.0)
+    }
+
+
 }
+
 
 impl fmt::Debug for Expr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

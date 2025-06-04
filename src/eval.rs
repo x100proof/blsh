@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use crate::ast::{Expr};
-use crate::types::{fp_to_hex, EvalError, Value, value_to_type};
+use crate::types::{fp_to_hex, EvalError, Value};
 use blst::*;
 use num_bigint::BigUint;
 use log::debug;
@@ -117,7 +117,12 @@ pub fn eval(expr: &Expr, env: &HashMap<String, Value>) -> Result<Value, EvalErro
                     }
                     Ok(Value::Coord12(fp12))
                 }
-                _ => Err(EvalError::EmbedHasIncorrectTypes)
+                (v1,v2) => Err(EvalError::EmbedHasIncorrectTypes {
+                         span1: expr1.miette_span(),
+                         span2: expr2.miette_span(),
+                         type1: v1.to_type(),
+                         type2: v2.to_type(),
+                })
             }
         }
 
@@ -173,21 +178,26 @@ pub fn eval(expr: &Expr, env: &HashMap<String, Value>) -> Result<Value, EvalErro
                     let mut result = blst_p1::default();
                     unsafe { blst_p1_mult(&mut result, &p, s.as_ptr(), s.len() * 8); }
                     Ok(Value::Point1(result))
-                }
+                },
                 (Value::Point2(p), Value::Scalar(s)) | (Value::Scalar(s), Value::Point2(p)) => {
                     let mut result = blst_p2::default();
                     unsafe { blst_p2_mult(&mut result, &p, s.as_ptr(), s.len() * 8); }
                     Ok(Value::Point2(result))
-                }
+                },
                 (Value::Scalar(s1), Value::Scalar(s2)) => {
                     let r = BigUint::from_bytes_le(&s1) * BigUint::from_bytes_le(&s2);
                     Ok(Value::Scalar(r.to_bytes_le().into_boxed_slice()))
-                }
-                _ => Err(EvalError::TypeMismatchMul),
+                },
+                (l,r) => Err(EvalError::TypeMismatchMul {
+                    lhs_span: lhs.miette_span(),
+                    rhs_span: rhs.miette_span(),
+                    lhs_type: l.to_type(),
+                    rhs_type: r.to_type(),
+                }),
             }
         }
 
-        Expr::Add(lhs, rhs, meta) => {
+        Expr::Add(lhs, rhs, _) => {
             let l = eval(lhs, env)?;
             let r = eval(rhs, env)?;
             match (l, r) {
@@ -201,18 +211,12 @@ pub fn eval(expr: &Expr, env: &HashMap<String, Value>) -> Result<Value, EvalErro
                     unsafe { blst_p2_add_or_double(&mut out, &p1, &p2); }
                     Ok(Value::Point2(out))
                 }
-                (lhsv, rhsv) => {
-                    let lhs_type = value_to_type(&lhsv);
-                    let rhs_type = value_to_type(&rhsv);
-
-                    Err(EvalError::TypeMismatchPointAdd {
-                        source: meta.source.clone(),
-                        lhs_span: lhs.as_ref().meta().span,
-                        rhs_span: rhs.as_ref().meta().span,
-                        lhs_type,
-                        rhs_type,
+                (l,r) => Err(EvalError::TypeMismatchPointAdd {
+                        lhs_span: lhs.miette_span(),
+                        rhs_span: rhs.miette_span(),
+                        lhs_type: l.to_type(),
+                        rhs_type: r.to_type(),
                     })
-                }
             }
         }
         Expr::Sub(lhs, rhs, _) => {

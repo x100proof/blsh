@@ -1,4 +1,6 @@
 use blst::*;
+use miette::{self, Diagnostic};
+use thiserror::Error;
 use num_bigint::BigUint;
 use std::collections::HashMap;
 use terminal_size::{Width, terminal_size};
@@ -8,36 +10,95 @@ use ansi_term::Colour::{Yellow, Blue, Cyan, Fixed};
 use ansi_term::Style;
 use atty::Stream;
 
-#[derive(Debug)]
+
+#[derive(Debug, Error, Diagnostic)]
 pub enum EvalError {
-    CannotRedefineBuiltin,
-    EmbedHasIncorrectTypes,
+    #[error("Cannot redefine a built-in name")]
+    CannotRedefineBuiltin {
+        #[label("identifier")]
+        ident: (usize, usize),
+    },
+
+    #[error("Can only call `embed(<expr1>,<expr2>)` if <expr1>: Point1 and <expr2>: Point2")]
+    EmbedHasIncorrectTypes {
+        #[label("{type1}")]
+        span1: (usize, usize),
+
+        #[label("{type2}")]
+        span2: (usize, usize),
+
+        type1: String,
+        type2: String,
+
+    },
+
+    #[error("Point is not on curve")]
     PointNotOnCurve,
+
+    #[error("Point is not in group")]
     PointNotInGroup,
-    PointCanOnlyContainCoord, // FIXME: Show what types were in it
+
+    #[error("Points can only contain Coord1/Coord2 values")]
+    PointCanOnlyContainCoord,
+
+    #[error("Coordinate pairs can only contain Coord1 or Coord6 values")]
     PairCanOnlyContainCoord1Or6,
+
+    #[error("Coordinate triples can only contain Coord2 values")]
     TripleCanOnlyContainCoord2,
+
+    #[error("Invalid compressed point")]
     InvalidCompressedPoint,
+
+    #[error("No square root for {0}")]
     NotASquare(String),
-    TypeMismatchCoord1,
-    TypeMismatchMul,
-    TypeMismatchMapToG1,
-    TypeMismatchMapToG2,
-    TypeMismatchPointAdd {
-        source: String,
+
+    #[error("Expected Coord1 operand")]
+    TypeMismatchCoord1 ,
+
+    #[error("Scalars can only be multiplied with points")]
+    TypeMismatchMul {
+        #[label("{lhs_type}")]
         lhs_span: (usize, usize),
+
+        #[label("{rhs_type}")]
         rhs_span: (usize, usize),
+
         lhs_type: String,
         rhs_type: String,
     },
+
+    #[error("map_to_g1 can only be applied to Coord1 types")]
+    TypeMismatchMapToG1,
+
+    #[error("map_to_g2 can only be applied to Coord2 types")]
+    TypeMismatchMapToG2,
+
+    #[error("Can only add expressions of the same type")]
+    TypeMismatchPointAdd {
+
+        #[label("{lhs_type}")]
+        lhs_span: (usize, usize),
+
+        #[label("{rhs_type}")]
+        rhs_span: (usize, usize),
+
+        lhs_type: String,
+        rhs_type: String,
+    },
+
+    #[error("Can only negate Point1, Point2, Coord1, Coord2")]
     TypeMismatchNeg,
+
+    #[error("Can only subtract points (of the same type)")]
     TypeMismatchPointSub,
+
+    #[error("Unknown identifier: {0}")]
     UnknownIdent(String),
 }
 
 #[derive(Clone, Debug)]
 pub enum Value {
-    // PkScalar(blst_scalar), // for secret keys
     Scalar(Box<[u8]>),
     Point1(blst_p1),
     Point2(blst_p2),
@@ -258,131 +319,6 @@ pub fn pretty_let_to_string(name: &str, value: &Value) -> String {
     pretty_to_string(pretty_let(name, value))
 }
 
-fn pretty_error_add_mismatch<'a>(source: &str, lhs_span: (usize, usize), rhs_span: (usize, usize),
-                   lhs_type: &str, rhs_type: &str, message: &str) -> PP<'a> {
-    let (lhs_start, lhs_end) = lhs_span;
-    let (rhs_start, rhs_end) = rhs_span;
-
-    // Source line
-    let source_pp = PP(RcDoc::text(source.to_string()));
-
-    // Underlines for LHS and RHS
-    let lhs_underline = concat(vec![
-        PP(RcDoc::text(" ".repeat(lhs_start))),
-        styled(&"^".repeat(lhs_end - lhs_start), ansi_term::Colour::Red.bold())
-    ]);
-
-    let rhs_underline = concat(vec![
-        PP(RcDoc::text(" ".repeat(rhs_start))),
-        styled(&"^".repeat(rhs_end - rhs_start), ansi_term::Colour::Red.bold())
-    ]);
-
-    // Ensure we have valid span widths
-    let lhs_width = if lhs_end > lhs_start { lhs_end - lhs_start } else { 1 };
-    let rhs_width = if rhs_end > rhs_start { rhs_end - rhs_start } else { 1 };
-
-    // Calculate center points for arrows
-    let lhs_center = lhs_start + (lhs_width / 2);
-    let rhs_center = rhs_start + (rhs_width / 2);
-
-    // Create vertical line annotations in Rust compiler style
-    let mut annotation_line1 = String::new();
-    let mut annotation_line2 = String::new();
-
-    // First line with vertical bars
-    for i in 0..=rhs_center + 1 {
-        if i == lhs_center {
-            annotation_line1.push('|');
-        } else if i == rhs_center {
-            annotation_line1.push('|');
-        } else {
-            annotation_line1.push(' ');
-        }
-    }
-
-    // Second line with type annotations
-    // Left type annotation
-    let lhs_annotation = format!("- {}", lhs_type);
-    let rhs_annotation = format!("- {}", rhs_type);
-
-    // Add left annotation
-    for mut i in 0..=rhs_center + rhs_annotation.len() + 1 {
-        if i == lhs_center {
-            annotation_line2.push('+');
-            for (j, c) in lhs_annotation.chars().enumerate() {
-                if i + j + 1 <= annotation_line2.len() {
-                    break;
-                }
-                annotation_line2.push(c);
-            }
-            i += lhs_annotation.len();
-        } else if i == rhs_center {
-            annotation_line2.push('+');
-            for c in rhs_annotation.chars() {
-                annotation_line2.push(c);
-            }
-            break;
-        } else if annotation_line2.len() < i {
-            annotation_line2.push(' ');
-        }
-    }
-
-    // Style the annotation lines
-    let annotation_pp1 = styled(&annotation_line1, ansi_term::Colour::Blue.bold());
-    let annotation_pp2 = styled(&annotation_line2, ansi_term::Colour::Blue.bold());
-
-    // Error message
-    let error_pp = styled(&format!("Error: {}", message), ansi_term::Colour::Red.bold());
-
-    // Combine everything
-    concat(vec![
-        source_pp, line(),
-        concat(vec![lhs_underline, rhs_underline]), line(),
-        annotation_pp1, line(),
-        annotation_pp2, line(),
-        error_pp
-    ])
-}
-
-impl std::fmt::Display for EvalError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            EvalError::CannotRedefineBuiltin    => write!(f, "Cannot redefine a built-in name"),
-            EvalError::EmbedHasIncorrectTypes   => write!(f, "Can only call `embed(x,y)` if x: Point1 and y: Point2"),
-            EvalError::InvalidCompressedPoint   => write!(f, "Invalid compressed point"),
-            EvalError::PointNotOnCurve          => write!(f, "Point is not on curve"), // FIXME: Make Point1 and Point2 specific
-            EvalError::PointNotInGroup          => write!(f, "Point is not in group"), // FIXME: Make Point1 and Point2 specific G1 vs G2
-            EvalError::PointCanOnlyContainCoord => write!(f, "Points can only contain Coord1/Coord2 values in them"),
-            EvalError::PairCanOnlyContainCoord1Or6 => write!(f, "Coordinate pairs can only contain Coord1 or Coord6 values"),
-            EvalError::TripleCanOnlyContainCoord2 => write!(f, "Coordinate triples can only contain Coord2 values"),
-            EvalError::NotASquare(n)   => write!(f, "No square root for {}", n),
-            EvalError::TypeMismatchCoord1       => write!(f, "Expected Coord1 operand"),
-            EvalError::TypeMismatchMul          => write!(f, "Scalars can only be multiplied with points"),
-            EvalError::TypeMismatchMapToG1     => write!(f, "map_to_g1 can only be applied to Coord1 types"),
-            EvalError::TypeMismatchMapToG2     => write!(f, "map_to_g2 can only be applied to Coord2 types"),
-            EvalError::TypeMismatchPointAdd { source, lhs_span, rhs_span, lhs_type, rhs_type } => {
-                if !supports_color() {
-                    return write!(f, "Can only add points (of the same type)");
-                }
-
-                let error_doc = pretty_error_add_mismatch(
-                    source,
-                    *lhs_span,
-                    *rhs_span,
-                    lhs_type,
-                    rhs_type,
-                    "Can only add points (of the same type)"
-                );
-
-                write!(f, "{}", pretty_to_string(error_doc))
-            },
-            EvalError::TypeMismatchNeg         => write!(f, "Can only negate Point1, Point2, Coord1, Coord2"),
-            EvalError::TypeMismatchPointSub    => write!(f, "Can only subtract points (of the same type)"),
-            EvalError::UnknownIdent(s) => write!(f, "Unknown identifier: {}", s),
-        }
-    }
-}
-
 impl std::fmt::Display for Value {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let str = pretty_to_string(pretty_value(self));
@@ -390,19 +326,21 @@ impl std::fmt::Display for Value {
     }
 }
 
-pub fn value_to_type(value: &Value) -> String {
-    match value {
-        Value::Scalar(_) => "Scalar".to_string(),
-        Value::Point1(_) => "Point1".to_string(),
-        Value::Point2(_) => "Point2".to_string(),
-        Value::Coord1(_) => "Coord1".to_string(),
-        Value::Coord2(_) => "Coord2".to_string(),
-        Value::Coord6(_) => "Coord6".to_string(),
-        Value::Coord12(_) => "Coord12".to_string(),
-    }
-}
 
 impl Value {
+    pub fn to_type(&self) -> String {
+        match self {
+            Value::Scalar(_) => "Scalar".to_string(),
+            Value::Point1(_) => "Point1".to_string(),
+            Value::Point2(_) => "Point2".to_string(),
+            Value::Coord1(_) => "Coord1".to_string(),
+            Value::Coord2(_) => "Coord2".to_string(),
+            Value::Coord6(_) => "Coord6".to_string(),
+            Value::Coord12(_) => "Coord12".to_string(),
+        }
+    }
+
+
     pub fn describe(&self) -> String {
         match self {
             Value::Point1(p) => {
@@ -498,3 +436,4 @@ fn get_terminal_width(default: usize) -> usize {
         default
     }
 }
+
