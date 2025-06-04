@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use crate::ast::Expr;
-use crate::types::{fp_to_hex, EvalError, Value};
+use crate::types::{fp_to_hex, EvalError, Value, value_to_type};
 use blst::*;
 use num_bigint::BigUint;
 use log::debug;
@@ -201,7 +201,48 @@ pub fn eval(expr: Expr, env: &HashMap<String, Value>) -> Result<Value, EvalError
                     unsafe { blst_p2_add_or_double(&mut out, &p1, &p2); }
                     Ok(Value::Point2(out))
                 }
-                _ => Err(EvalError::TypeMismatchPointAdd),
+                (lhs, rhs) => {
+                    let source = match &e1 {
+                        Expr::Add(_, _, meta) => meta.source.clone(),
+                        _ => "".to_string(), // Fallback
+                    };
+                    
+                    let lhs_type = value_to_type(&lhs);
+                    let rhs_type = value_to_type(&rhs);
+                    
+                    // Get spans for the left and right expressions
+                    let lhs_meta = match *e1 {
+                        Expr::Point1Compressed(_, ref meta) | 
+                        Expr::Point1Uncompressed(_, ref meta) |
+                        Expr::Point2Compressed(_, ref meta) |
+                        Expr::Point2Uncompressed(_, ref meta) |
+                        Expr::Point(_, _, ref meta) => meta,
+                        _ => match &e1 {
+                            Expr::Add(_, _, meta) => meta,
+                            _ => &ExprMeta::new("".to_string(), (0, 0)),
+                        },
+                    };
+                    
+                    let rhs_meta = match *e2 {
+                        Expr::Point1Compressed(_, ref meta) | 
+                        Expr::Point1Uncompressed(_, ref meta) |
+                        Expr::Point2Compressed(_, ref meta) |
+                        Expr::Point2Uncompressed(_, ref meta) |
+                        Expr::Point(_, _, ref meta) => meta,
+                        _ => match &e2 {
+                            Expr::Add(_, _, meta) => meta,
+                            _ => &ExprMeta::new("".to_string(), (0, 0)),
+                        },
+                    };
+                    
+                    Err(EvalError::TypeMismatchPointAdd {
+                        source,
+                        lhs_span: lhs_meta.span,
+                        rhs_span: rhs_meta.span,
+                        lhs_type,
+                        rhs_type,
+                    })
+                }
             }
         }
         Expr::Sub(lhs, rhs, _) => {
