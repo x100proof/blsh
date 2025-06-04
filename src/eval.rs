@@ -1,9 +1,33 @@
 use std::collections::HashMap;
-use crate::ast::Expr;
+use crate::ast::{Expr, ExprMeta};
 use crate::types::{fp_to_hex, EvalError, Value, value_to_type};
 use blst::*;
 use num_bigint::BigUint;
 use log::debug;
+
+/// Extract metadata from an expression
+fn expr_meta(expr: &Expr) -> &ExprMeta {
+    match expr {
+        Expr::Scalar(_, meta) |
+        Expr::Coord1(_, meta) |
+        Expr::Point1Compressed(_, meta) |
+        Expr::Point1Uncompressed(_, meta) |
+        Expr::Point2Compressed(_, meta) |
+        Expr::Point2Uncompressed(_, meta) |
+        Expr::Point(_, _, meta) |
+        Expr::CoordPair(_, _, meta) |
+        Expr::CoordTriple(_, _, _, meta) |
+        Expr::Embed(_, _, meta) |
+        Expr::Sqrt(_, meta) |
+        Expr::MapToG1(_, _, meta) |
+        Expr::MapToG2(_, _, meta) |
+        Expr::Mul(_, _, meta) |
+        Expr::Add(_, _, meta) |
+        Expr::Sub(_, _, meta) |
+        Expr::Neg(_, meta) |
+        Expr::Var(_, meta) => meta
+    }
+}
 
 pub fn eval(expr: Expr, env: &HashMap<String, Value>) -> Result<Value, EvalError> {
     debug!("Evaluating: {:?}", expr);
@@ -202,41 +226,15 @@ pub fn eval(expr: Expr, env: &HashMap<String, Value>) -> Result<Value, EvalError
                     Ok(Value::Point2(out))
                 }
                 (lhs, rhs) => {
-                    let source = match &e1 {
-                        Expr::Add(_, _, meta) => meta.source.clone(),
-                        _ => "".to_string(), // Fallback
-                    };
-                    
                     let lhs_type = value_to_type(&lhs);
                     let rhs_type = value_to_type(&rhs);
                     
-                    // Get spans for the left and right expressions
-                    let lhs_meta = match *e1 {
-                        Expr::Point1Compressed(_, ref meta) | 
-                        Expr::Point1Uncompressed(_, ref meta) |
-                        Expr::Point2Compressed(_, ref meta) |
-                        Expr::Point2Uncompressed(_, ref meta) |
-                        Expr::Point(_, _, ref meta) => meta,
-                        _ => match &e1 {
-                            Expr::Add(_, _, meta) => meta,
-                            _ => &ExprMeta::new("".to_string(), (0, 0)),
-                        },
-                    };
-                    
-                    let rhs_meta = match *e2 {
-                        Expr::Point1Compressed(_, ref meta) | 
-                        Expr::Point1Uncompressed(_, ref meta) |
-                        Expr::Point2Compressed(_, ref meta) |
-                        Expr::Point2Uncompressed(_, ref meta) |
-                        Expr::Point(_, _, ref meta) => meta,
-                        _ => match &e2 {
-                            Expr::Add(_, _, meta) => meta,
-                            _ => &ExprMeta::new("".to_string(), (0, 0)),
-                        },
-                    };
+                    // Get metadata from expressions
+                    let lhs_meta = expr_meta(&e1);
+                    let rhs_meta = expr_meta(&e2);
                     
                     Err(EvalError::TypeMismatchPointAdd {
-                        source,
+                        source: expr_meta(&expr).source.clone(),
                         lhs_span: lhs_meta.span,
                         rhs_span: rhs_meta.span,
                         lhs_type,
