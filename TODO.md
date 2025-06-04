@@ -1,6 +1,7 @@
 ## TODO
 
 
+- [ ] Add tab completion for environment
 - [ ] Add a "toggle_succinct" command
 - [ ] Add "help" command
 - [ ] Add `blst_sk_to_pk_in_g1/g2` and `blst_sign_pk_in_g1/g2`
