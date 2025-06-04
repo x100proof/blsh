@@ -205,25 +205,12 @@ pub fn eval(expr: Expr, env: &HashMap<String, Value>) -> Result<Value, EvalError
                     let lhs_type = value_to_type(&lhsv);
                     let rhs_type = value_to_type(&rhsv);
 
-                    // Get metadata directly from expressions
-                    let lhs_meta = match &*lhs {
-                        Expr::Add(_, _, m) | Expr::Point(_, _, m) | 
-                        Expr::Point1Compressed(_, m) | Expr::Point1Uncompressed(_, m) |
-                        Expr::Point2Compressed(_, m) | Expr::Point2Uncompressed(_, m) => m.span,
-                        _ => meta.span, // Fallback to parent span if needed
-                    };
-                    
-                    let rhs_meta = match &*rhs {
-                        Expr::Add(_, _, m) | Expr::Point(_, _, m) | 
-                        Expr::Point1Compressed(_, m) | Expr::Point1Uncompressed(_, m) |
-                        Expr::Point2Compressed(_, m) | Expr::Point2Uncompressed(_, m) => m.span,
-                        _ => meta.span, // Fallback to parent span if needed
-                    };
-
+                    // Use the spans from the parent expression's metadata
+                    // This is simpler and avoids borrow issues
                     Err(EvalError::TypeMismatchPointAdd {
                         source: meta.source.clone(),
-                        lhs_span: lhs_meta,
-                        rhs_span: rhs_meta,
+                        lhs_span: meta.span,
+                        rhs_span: meta.span,
                         lhs_type,
                         rhs_type,
                     })
