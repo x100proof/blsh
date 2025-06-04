@@ -68,6 +68,31 @@ pub enum Expr {
     Var(String, ExprMeta),
 }
 
+impl Expr {
+    pub fn expr_meta(&self) -> &ExprMeta {
+        match self {
+            Expr::Scalar(_, meta) => meta,
+            Expr::Coord1(_, meta) => meta,
+            Expr::CoordPair(_, _, meta) => meta,
+            Expr::CoordTriple(_, _, _, meta) => meta,
+            Expr::Point(_, _, meta) => meta,
+            Expr::Point1Compressed(_, meta) => meta,
+            Expr::Point1Uncompressed(_, meta) => meta,
+            Expr::Point2Compressed(_, meta) => meta,
+            Expr::Point2Uncompressed(_, meta) => meta,
+            Expr::Embed(_, _, meta) => meta,
+            Expr::Sqrt(_, meta) => meta,
+            Expr::MapToG1(_, _, meta) => meta,
+            Expr::MapToG2(_, _, meta) => meta,
+            Expr::Mul(_, _, meta) => meta,
+            Expr::Add(_, _, meta) => meta,
+            Expr::Sub(_, _, meta) => meta,
+            Expr::Neg(_, meta) => meta,
+            Expr::Var(_, meta) => meta,
+        }
+    }
+}
+
 impl fmt::Debug for Expr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
