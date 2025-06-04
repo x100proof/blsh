@@ -33,18 +33,20 @@ pub enum EvalError {
 
     },
 
-    #[error("Point is not on curve")]
+    #[error("Compressed point is not on curve {curve}")]
     PointNotOnCurve {
         #[label("{pt_type}")]
         span: ErrorSpan,
         pt_type: String,
+        curve: String,
     },
 
-    #[error("Point is not in group")]
+    #[error("Compressed point is not in group {group}")]
     PointNotInGroup {
         #[label("{pt_type}")]
         span: ErrorSpan,
         pt_type: String,
+        group: String,
     },
 
     #[error("{point_type} can only contain {expected_coord_type} values")]
@@ -89,14 +91,18 @@ pub enum EvalError {
         pt_type: String,
     },
 
-    #[error("No square root for this value")]
+    #[error("No square root for this Coord1 value")]
     NotASquare {
         #[label("Coord1")]
         span: ErrorSpan,
     },
 
-    #[error("Expected Coord1 operand")]
-    TypeMismatchCoord1 ,
+    #[error("`sqrt` expects a Coord1 operand")]
+    SqrtExpectsCoord1 {
+        #[label("{expr_type}")]
+        span: ErrorSpan,
+        expr_type: String,
+    },
 
     #[error("Scalars can only be multiplied with points")]
     TypeMismatchMul {
@@ -162,8 +168,9 @@ pub enum EvalError {
         rhs_type: String,
     },
 
-    #[error("Unknown identifier")]
+    #[error("Unknown identifier. Not built-in or bound with `let`")]
     UnknownIdent {
+        #[label("unknown")]
         span: ErrorSpan
     },
 }

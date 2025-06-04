@@ -94,7 +94,7 @@ pub fn eval(expr: &Expr, env: &HashMap<String, Value>) -> Result<Value, EvalErro
         Expr::Point1Compressed(bytes, _) => {
             let mut aff = blst_p1_affine::default();
             let err = unsafe { blst_p1_uncompress(&mut aff, bytes.as_ptr()) };
-            check_deserialize_error(err, expr.miette_span(), "Point1")?;
+            check_deserialize_error(err, expr.miette_span(), Curve::E1)?;
             let mut p = blst_p1::default();
             unsafe { blst_p1_from_affine(&mut p, &aff); }
             Ok(Value::Point1(p))
@@ -103,7 +103,7 @@ pub fn eval(expr: &Expr, env: &HashMap<String, Value>) -> Result<Value, EvalErro
         Expr::Point1Uncompressed(bytes, _) => {
             let mut aff = blst_p1_affine::default();
             let err = unsafe { blst_p1_deserialize(&mut aff, bytes.as_ptr()) };
-            check_deserialize_error(err, expr.miette_span(), "Point1")?;
+            check_deserialize_error(err, expr.miette_span(), Curve::E1)?;
             let mut p = blst_p1::default();
             unsafe { blst_p1_from_affine(&mut p, &aff); }
             Ok(Value::Point1(p))
@@ -113,7 +113,7 @@ pub fn eval(expr: &Expr, env: &HashMap<String, Value>) -> Result<Value, EvalErro
         Expr::Point2Compressed(bytes, _) => {
             let mut aff = blst_p2_affine::default();
             let err = unsafe { blst_p2_uncompress(&mut aff, bytes.as_ptr()) };
-            check_deserialize_error(err, expr.miette_span(), "Point2")?;
+            check_deserialize_error(err, expr.miette_span(), Curve::E2)?;
             let mut p = blst_p2::default();
             unsafe { blst_p2_from_affine(&mut p, &aff); }
             Ok(Value::Point2(p))
@@ -122,7 +122,7 @@ pub fn eval(expr: &Expr, env: &HashMap<String, Value>) -> Result<Value, EvalErro
         Expr::Point2Uncompressed(bytes, _) => {
             let mut aff = blst_p2_affine::default();
             let err = unsafe { blst_p2_deserialize(&mut aff, bytes.as_ptr()) };
-            check_deserialize_error(err, expr.miette_span(), "Point2")?;
+            check_deserialize_error(err, expr.miette_span(), Curve::E2)?;
             let mut p = blst_p2::default();
             unsafe { blst_p2_from_affine(&mut p, &aff); }
             Ok(Value::Point2(p))
@@ -157,7 +157,7 @@ pub fn eval(expr: &Expr, env: &HashMap<String, Value>) -> Result<Value, EvalErro
             let v = eval(inner, env)?;
             let coord = match v {
                 Value::Coord1(fp) => fp,
-                _ => return Err(EvalError::TypeMismatchCoord1),
+                v => return Err(EvalError::SqrtExpectsCoord1 { span: inner.miette_span(), expr_type: v.to_type()}),
             };
             if unsafe { blst_fp_is_square(&coord) } {
                 let mut result = blst_fp::default();
@@ -182,7 +182,7 @@ pub fn eval(expr: &Expr, env: &HashMap<String, Value>) -> Result<Value, EvalErro
                     unsafe { blst_map_to_g1(&mut result, &x, &y); }
                     Ok(Value::Point1(result))
                 }
-                _ => Err(EvalError::TypeMismatchMapToG1 {
+                (l, r) => Err(EvalError::TypeMismatchMapToG1 {
                     span1: x_expr.miette_span(),
                     span2: y_expr.miette_span(),
                     type1: l.to_type(),
@@ -200,7 +200,7 @@ pub fn eval(expr: &Expr, env: &HashMap<String, Value>) -> Result<Value, EvalErro
                     unsafe { blst_map_to_g2(&mut result, &x, &y); }
                     Ok(Value::Point2(result))
                 }
-                _ => Err(EvalError::TypeMismatchMapToG2 {
+                (l,r) => Err(EvalError::TypeMismatchMapToG2 {
                     span1: x_expr.miette_span(),
                     span2: y_expr.miette_span(),
                     type1: l.to_type(),
@@ -274,7 +274,7 @@ pub fn eval(expr: &Expr, env: &HashMap<String, Value>) -> Result<Value, EvalErro
                     unsafe { blst_p2_add_or_double(&mut out, &p1, &p2); }
                     Ok(Value::Point2(out))
                 }
-                _ => Err(EvalError::TypeMismatchPointSub {
+                (l,r) => Err(EvalError::TypeMismatchPointSub {
                     lhs_span: lhs.miette_span(),
                     rhs_span: rhs.miette_span(),
                     lhs_type: l.to_type(),
@@ -312,27 +312,41 @@ pub fn eval(expr: &Expr, env: &HashMap<String, Value>) -> Result<Value, EvalErro
         Expr::Var(name, _) => {
             env.get(name).cloned().ok_or(EvalError::UnknownIdent {
                 span: expr.miette_span(),
-                name: name.clone(),
             })
         }
     }
 }
 
+enum Curve {
+    E1,
+    E2
+}
 
-fn check_deserialize_error(err: BLST_ERROR, span: (usize, usize), pt_type: &str) -> Result<(),EvalError> {
+
+fn check_deserialize_error(err: BLST_ERROR, span: (usize, usize), curve: Curve) -> Result<(),EvalError> {
+    let point_type = || {
+        match curve {
+            Curve::E1 => "Point1",
+            Curve::E2 => "Point2"
+        }.to_string()
+    };
+
     if err == BLST_ERROR::BLST_SUCCESS { return Ok(()); }
     let e = match err {
         BLST_ERROR::BLST_POINT_NOT_IN_GROUP => EvalError::PointNotInGroup {
             span,
-            pt_type: pt_type.to_string(),
+            pt_type: point_type(),
+            group: match curve { Curve::E1 => "G1", Curve::E2 => "G2"}.to_string(),
+
         },
         BLST_ERROR::BLST_POINT_NOT_ON_CURVE => EvalError::PointNotOnCurve {
             span,
-            pt_type: pt_type.to_string(),
+            pt_type: point_type(),
+            curve: (match curve { Curve::E1 => "E1", Curve::E2 => "E2"}).to_string(),
         },
         _ => EvalError::InvalidCompressedPoint {
             span,
-            pt_type: pt_type.to_string(),
+            pt_type: point_type(),
         },
     };
     Err(e)
