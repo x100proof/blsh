@@ -28,7 +28,12 @@ pub fn eval(expr: &Expr, env: &HashMap<String, Value>) -> Result<Value, EvalErro
                 (Value::Coord6(x), Value::Coord6(y)) => {
                     Ok(Value::Coord12(blst_fp12 { fp6: [x, y] }))
                 }
-                _ => Err(EvalError::PairCanOnlyContainCoord1Or6)
+                _ => Err(EvalError::PairCanOnlyContainCoord1Or6 {
+                    x_span: expr1.miette_span(),
+                    y_span: expr2.miette_span(),
+                    x_coord_type: v1.to_type(),
+                    y_coord_type: v2.to_type(),
+                })
             }
         }
         Expr::CoordTriple(expr1, expr2, expr3, _) => {
@@ -40,7 +45,14 @@ pub fn eval(expr: &Expr, env: &HashMap<String, Value>) -> Result<Value, EvalErro
                 (Value::Coord2(x), Value::Coord2(y), Value::Coord2(z)) => {
                     Ok(Value::Coord6(blst_fp6 { fp2: [x, y, z] }))
                 }
-                _ => Err(EvalError::TripleCanOnlyContainCoord2)
+                _ => Err(EvalError::TripleCanOnlyContainCoord2 {
+                    x_span: expr1.miette_span(),
+                    y_span: expr2.miette_span(),
+                    z_span: expr3.miette_span(),
+                    x_coord_type: v1.to_type(),
+                    y_coord_type: v2.to_type(),
+                    z_coord_type: v3.to_type(),
+                })
             }
         }
 
@@ -60,14 +72,29 @@ pub fn eval(expr: &Expr, env: &HashMap<String, Value>) -> Result<Value, EvalErro
                     unsafe { blst_p2_from_affine(&mut p, &aff); }
                     Ok(Value::Point2(p))
                 }
-                _ => Err(EvalError::PointCanOnlyContainCoord)
+                _ => Err(EvalError::PointCanOnlyContainCoord {
+                    x_span: expr1.miette_span(),
+                    y_span: expr2.miette_span(),
+                    point_type: match (v1, v2) {
+                        (Value::Coord1(_), _) | (_, Value::Coord1(_)) => "Point1",
+                        (Value::Coord2(_), _) | (_, Value::Coord2(_)) => "Point2",
+                        _ => "Point",
+                    }.to_string(),
+                    expected_coord_type: match (v1, v2) {
+                        (Value::Coord1(_), _) | (_, Value::Coord1(_)) => "Coord1",
+                        (Value::Coord2(_), _) | (_, Value::Coord2(_)) => "Coord2",
+                        _ => "Coord",
+                    }.to_string(),
+                    x_coord_type: v1.to_type(),
+                    y_coord_type: v2.to_type(),
+                })
             }
         }
 
         Expr::Point1Compressed(bytes, _) => {
             let mut aff = blst_p1_affine::default();
             let err = unsafe { blst_p1_uncompress(&mut aff, bytes.as_ptr()) };
-            check_deserialize_error(err)?;
+            check_deserialize_error(err, expr.miette_span(), "Point1")?;
             let mut p = blst_p1::default();
             unsafe { blst_p1_from_affine(&mut p, &aff); }
             Ok(Value::Point1(p))
@@ -76,7 +103,7 @@ pub fn eval(expr: &Expr, env: &HashMap<String, Value>) -> Result<Value, EvalErro
         Expr::Point1Uncompressed(bytes, _) => {
             let mut aff = blst_p1_affine::default();
             let err = unsafe { blst_p1_deserialize(&mut aff, bytes.as_ptr()) };
-            check_deserialize_error(err)?;
+            check_deserialize_error(err, expr.miette_span(), "Point1")?;
             let mut p = blst_p1::default();
             unsafe { blst_p1_from_affine(&mut p, &aff); }
             Ok(Value::Point1(p))
@@ -86,7 +113,7 @@ pub fn eval(expr: &Expr, env: &HashMap<String, Value>) -> Result<Value, EvalErro
         Expr::Point2Compressed(bytes, _) => {
             let mut aff = blst_p2_affine::default();
             let err = unsafe { blst_p2_uncompress(&mut aff, bytes.as_ptr()) };
-            check_deserialize_error(err)?;
+            check_deserialize_error(err, expr.miette_span(), "Point2")?;
             let mut p = blst_p2::default();
             unsafe { blst_p2_from_affine(&mut p, &aff); }
             Ok(Value::Point2(p))
@@ -95,7 +122,7 @@ pub fn eval(expr: &Expr, env: &HashMap<String, Value>) -> Result<Value, EvalErro
         Expr::Point2Uncompressed(bytes, _) => {
             let mut aff = blst_p2_affine::default();
             let err = unsafe { blst_p2_deserialize(&mut aff, bytes.as_ptr()) };
-            check_deserialize_error(err)?;
+            check_deserialize_error(err, expr.miette_span(), "Point2")?;
             let mut p = blst_p2::default();
             unsafe { blst_p2_from_affine(&mut p, &aff); }
             Ok(Value::Point2(p))
@@ -137,7 +164,9 @@ pub fn eval(expr: &Expr, env: &HashMap<String, Value>) -> Result<Value, EvalErro
                 unsafe { blst_fp_sqrt(&mut result, &coord); }
                 Ok(Value::Coord1(result))
             } else {
-                Err(EvalError::NotASquare(fp_to_hex(&coord)))
+                Err(EvalError::NotASquare {
+                    span: inner.miette_span(),
+                })
             }
         },
 
@@ -269,11 +298,17 @@ pub fn eval(expr: &Expr, env: &HashMap<String, Value>) -> Result<Value, EvalErro
 }
 
 
-fn check_deserialize_error(err: BLST_ERROR) -> Result<(),EvalError> {
+fn check_deserialize_error(err: BLST_ERROR, span: (usize, usize), pt_type: &str) -> Result<(),EvalError> {
     if err == BLST_ERROR::BLST_SUCCESS { return Ok(()); }
     let e = match err {
-        BLST_ERROR::BLST_POINT_NOT_IN_GROUP => EvalError::PointNotInGroup,
-        BLST_ERROR::BLST_POINT_NOT_ON_CURVE => EvalError::PointNotOnCurve,
+        BLST_ERROR::BLST_POINT_NOT_IN_GROUP => EvalError::PointNotInGroup {
+            span,
+            pt_type: pt_type.to_string(),
+        },
+        BLST_ERROR::BLST_POINT_NOT_ON_CURVE => EvalError::PointNotOnCurve {
+            span,
+            pt_type: pt_type.to_string(),
+        },
         _ => EvalError::InvalidCompressedPoint,
     };
     Err(e)
