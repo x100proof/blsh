@@ -31,7 +31,7 @@ fn expr_meta(expr: &Expr) -> &ExprMeta {
 
 pub fn eval(expr: Expr, env: &HashMap<String, Value>) -> Result<Value, EvalError> {
     debug!("Evaluating: {:?}", expr);
-    
+
     match expr {
         Expr::Scalar(bytes, _) => {
             Ok(Value::Scalar(bytes))
@@ -211,7 +211,7 @@ pub fn eval(expr: Expr, env: &HashMap<String, Value>) -> Result<Value, EvalError
             }
         }
 
-        Expr::Add(lhs, rhs, _) => {
+        Expr::Add(lhs, rhs, meta) => {
             let l = eval(*lhs, env)?;
             let r = eval(*rhs, env)?;
             match (l, r) {
@@ -225,16 +225,16 @@ pub fn eval(expr: Expr, env: &HashMap<String, Value>) -> Result<Value, EvalError
                     unsafe { blst_p2_add_or_double(&mut out, &p1, &p2); }
                     Ok(Value::Point2(out))
                 }
-                (lhs, rhs) => {
-                    let lhs_type = value_to_type(&lhs);
-                    let rhs_type = value_to_type(&rhs);
-                    
+                (lhsv, rhsv) => {
+                    let lhs_type = value_to_type(&lhsv);
+                    let rhs_type = value_to_type(&rhsv);
+
                     // Get metadata from expressions
-                    let lhs_meta = expr_meta(&e1);
-                    let rhs_meta = expr_meta(&e2);
-                    
+                    let lhs_meta = expr_meta(&lhs);
+                    let rhs_meta = expr_meta(&rhs);
+
                     Err(EvalError::TypeMismatchPointAdd {
-                        source: expr_meta(&expr).source.clone(),
+                        source: meta.source,
                         lhs_span: lhs_meta.span,
                         rhs_span: rhs_meta.span,
                         lhs_type,
