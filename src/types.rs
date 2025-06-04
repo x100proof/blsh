@@ -277,14 +277,16 @@ fn pretty_error_add_mismatch<'a>(source: &str, lhs_span: (usize, usize), rhs_spa
         styled(&"^".repeat(rhs_end - rhs_start), ansi_term::Colour::Red.bold())
     ]);
     
-    // Type annotations
-    let lhs_type_pos = lhs_start + (lhs_end - lhs_start) / 2 - lhs_type.len() / 2;
+    // Type annotations - handle potential underflow with saturating_sub
+    let lhs_type_pos = lhs_start + (lhs_end - lhs_start) / 2;
+    let lhs_type_pos = lhs_type_pos.saturating_sub(lhs_type.len() / 2);
     let lhs_type_pp = concat(vec![
         PP(RcDoc::text(" ".repeat(lhs_type_pos))),
         type_pp(lhs_type)
     ]);
     
-    let rhs_type_pos = rhs_start + (rhs_end - rhs_start) / 2 - rhs_type.len() / 2;
+    let rhs_type_pos = rhs_start + (rhs_end - rhs_start) / 2;
+    let rhs_type_pos = rhs_type_pos.saturating_sub(rhs_type.len() / 2);
     let rhs_type_pp = concat(vec![
         PP(RcDoc::text(" ".repeat(rhs_type_pos))),
         type_pp(rhs_type)
