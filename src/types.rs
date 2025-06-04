@@ -277,9 +277,6 @@ fn pretty_error_add_mismatch<'a>(source: &str, lhs_span: (usize, usize), rhs_spa
         styled(&"^".repeat(rhs_end - rhs_start), ansi_term::Colour::Red.bold())
     ]);
 
-    // Create a combined type annotation line with arrows pointing to each expression
-    let mut type_line = String::new();
-
     // Ensure we have valid span widths
     let lhs_width = if lhs_end > lhs_start { lhs_end - lhs_start } else { 1 };
     let rhs_width = if rhs_end > rhs_start { rhs_end - rhs_start } else { 1 };
@@ -288,71 +285,51 @@ fn pretty_error_add_mismatch<'a>(source: &str, lhs_span: (usize, usize), rhs_spa
     let lhs_center = lhs_start + (lhs_width / 2);
     let rhs_center = rhs_start + (rhs_width / 2);
 
-    // Determine where to place the type annotations
-    let spacing = 2; // minimum space between type annotations
-    let combined_length = lhs_type.len() + rhs_type.len() + spacing;
-    let available_space = if rhs_center > lhs_center + combined_length {
-        // Enough space to place types between expressions
-        true
-    } else {
-        // Not enough space, will place types at the end
-        false
-    };
-
-    if available_space {
-        // Place types between the expressions with arrows pointing to each
-        let lhs_arrow_start = lhs_center + 1;
-        let rhs_arrow_end = rhs_center - 1;
-        let mid_point = (lhs_arrow_start + rhs_arrow_end) / 2;
-
-        // Left expression arrow and type
-        for i in 0..mid_point {
-            if i < lhs_center {
-                type_line.push(' ');
-            } else if i == lhs_center {
-                type_line.push('↑');
-            } else {
-                type_line.push('─');
-            }
+    // Create vertical line annotations in Rust compiler style
+    let mut annotation_line1 = String::new();
+    let mut annotation_line2 = String::new();
+    
+    // First line with vertical bars
+    for i in 0..=rhs_center + 1 {
+        if i == lhs_center {
+            annotation_line1.push('|');
+        } else if i == rhs_center {
+            annotation_line1.push('|');
+        } else {
+            annotation_line1.push(' ');
         }
-
-        // Add left type
-        type_line.push_str(&format!(" {} ", lhs_type));
-
-        // Add separator
-        type_line.push_str("| ");
-
-        // Add right type
-        type_line.push_str(&format!("{} ", rhs_type));
-
-        // Right expression arrow
-        for i in (mid_point + lhs_type.len() + rhs_type.len() + 4)..=rhs_center {
-            if i == rhs_center {
-                type_line.push('↑');
-            } else {
-                type_line.push('─');
+    }
+    
+    // Second line with type annotations
+    // Left type annotation
+    let lhs_annotation = format!("- {}", lhs_type);
+    let rhs_annotation = format!("- {}", rhs_type);
+    
+    // Add left annotation
+    for i in 0..=rhs_center + rhs_annotation.len() + 1 {
+        if i == lhs_center {
+            annotation_line2.push('+');
+            for (j, c) in lhs_annotation.chars().enumerate() {
+                if i + j + 1 <= annotation_line2.len() {
+                    break;
+                }
+                annotation_line2.push(c);
             }
-        }
-    } else {
-        // Not enough space between expressions, place types at the end with arrows
-
-        // Create arrows pointing to each expression
-        for i in 0..=rhs_center {
-            if i == lhs_center || i == rhs_center {
-                type_line.push('↑');
-            } else if i > lhs_center && i < rhs_center {
-                type_line.push(' ');
-            } else {
-                type_line.push(' ');
+            i += lhs_annotation.len();
+        } else if i == rhs_center {
+            annotation_line2.push('+');
+            for c in rhs_annotation.chars() {
+                annotation_line2.push(c);
             }
+            break;
+        } else if annotation_line2.len() < i {
+            annotation_line2.push(' ');
         }
-
-        // Add types after the expressions
-        type_line.push_str(&format!(" {} and {}", lhs_type, rhs_type));
     }
 
-    // Create the type annotation line
-    let type_annotation_pp = styled(&type_line, ansi_term::Colour::Blue.bold());
+    // Style the annotation lines
+    let annotation_pp1 = styled(&annotation_line1, ansi_term::Colour::Blue.bold());
+    let annotation_pp2 = styled(&annotation_line2, ansi_term::Colour::Blue.bold());
 
     // Error message
     let error_pp = styled(&format!("Error: {}", message), ansi_term::Colour::Red.bold());
@@ -361,7 +338,8 @@ fn pretty_error_add_mismatch<'a>(source: &str, lhs_span: (usize, usize), rhs_spa
     concat(vec![
         source_pp, line(),
         concat(vec![lhs_underline, rhs_underline]), line(),
-        type_annotation_pp, line(),
+        annotation_pp1, line(),
+        annotation_pp2, line(),
         error_pp
     ])
 }
