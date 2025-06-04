@@ -207,8 +207,8 @@ pub fn eval(expr: Expr, env: &HashMap<String, Value>) -> Result<Value, EvalError
 
                     Err(EvalError::TypeMismatchPointAdd {
                         source: meta.source.clone(),
-                        lhs_span: lhs.meta.span,
-                        rhs_span: rhs.meta.span,
+                        lhs_span: lhs.meta().span,
+                        rhs_span: rhs.meta().span,
                         lhs_type,
                         rhs_type,
                     })

@@ -44,6 +44,8 @@ impl fmt::Debug for ExprMeta {
 /*
  *   The extra `ExprMeta` field might be a bit ugly but if we try to create e.g. a `FullExpr`
  *   data structure that contains `Expr` and `ExprMeta` has fields we get "recursive type hell"
+ *   since each of the `Box<Expr>` below would have to be `Box<FullExpr>` even though the
+ *   type itself is `Expr`.
  */
 #[derive(Clone)]
 pub enum Expr {
@@ -69,7 +71,7 @@ pub enum Expr {
 }
 
 impl Expr {
-    pub fn expr_meta(&self) -> &ExprMeta {
+    pub fn meta(&self) -> &ExprMeta {
         match self {
             Expr::Scalar(_, meta) => meta,
             Expr::Coord1(_, meta) => meta,
