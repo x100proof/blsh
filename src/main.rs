@@ -117,7 +117,7 @@ fn handle_let(name: String, expr: ast::Expr, env: &mut HashMap<String, Value>) {
         println!("Error: {}", EvalError::CannotRedefineBuiltin);
         return;
     }
-    match eval(expr, env) {
+    match eval(&expr, env) {
         Ok(value) => {
             env.insert(name.clone(), value.clone());
             let output = pretty_let_to_string(&name, &value);
@@ -129,7 +129,7 @@ fn handle_let(name: String, expr: ast::Expr, env: &mut HashMap<String, Value>) {
 
 fn handle_command(cmd: Command, env: &HashMap<String, Value>) {
     match cmd {
-        Command::Info(expr) => match eval(expr, env) {
+        Command::Info(expr) => match eval(&expr, env) {
             Ok(val) => println!("{}", val.describe()),
             Err(e) => handle_eval_err(e),
         }
@@ -138,7 +138,7 @@ fn handle_command(cmd: Command, env: &HashMap<String, Value>) {
 
 fn handle_expr(expr: ast::Expr, env: &HashMap<String, Value>) {
     debug!("Evaluating expression: {:?}", expr);
-    match eval(expr, env) {
+    match eval(&expr, env) {
         Ok(result) => println!("{}", result.to_string()),
         Err(e) => handle_eval_err(e),
     }

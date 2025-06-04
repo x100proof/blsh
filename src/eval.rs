@@ -1,16 +1,16 @@
 use std::collections::HashMap;
-use crate::ast::{Expr, ExprMeta};
+use crate::ast::{Expr};
 use crate::types::{fp_to_hex, EvalError, Value, value_to_type};
 use blst::*;
 use num_bigint::BigUint;
 use log::debug;
 
-pub fn eval(expr: Expr, env: &HashMap<String, Value>) -> Result<Value, EvalError> {
+pub fn eval(expr: &Expr, env: &HashMap<String, Value>) -> Result<Value, EvalError> {
     debug!("Evaluating: {:?}", expr);
 
     match expr {
         Expr::Scalar(bytes, _) => {
-            Ok(Value::Scalar(bytes))
+            Ok(Value::Scalar(bytes.clone()))
         }
         Expr::Coord1(bytes, _) => {
             let mut fp = blst_fp::default();
@@ -18,8 +18,8 @@ pub fn eval(expr: Expr, env: &HashMap<String, Value>) -> Result<Value, EvalError
             Ok(Value::Coord1(fp))
         }
         Expr::CoordPair(expr1, expr2, _) => {
-            let v1 = eval(*expr1, env)?;
-            let v2 = eval(*expr2, env)?;
+            let v1 = eval(expr1, env)?;
+            let v2 = eval(expr2, env)?;
 
             match (v1, v2) {
                 (Value::Coord1(x), Value::Coord1(y)) => {
@@ -32,9 +32,9 @@ pub fn eval(expr: Expr, env: &HashMap<String, Value>) -> Result<Value, EvalError
             }
         }
         Expr::CoordTriple(expr1, expr2, expr3, _) => {
-            let v1 = eval(*expr1, env)?;
-            let v2 = eval(*expr2, env)?;
-            let v3 = eval(*expr3, env)?;
+            let v1 = eval(expr1, env)?;
+            let v2 = eval(expr2, env)?;
+            let v3 = eval(expr3, env)?;
 
             match (v1, v2, v3) {
                 (Value::Coord2(x), Value::Coord2(y), Value::Coord2(z)) => {
@@ -45,8 +45,8 @@ pub fn eval(expr: Expr, env: &HashMap<String, Value>) -> Result<Value, EvalError
         }
 
         Expr::Point(expr1, expr2, _) => {
-            let v1 = eval(*expr1, env)?;
-            let v2 = eval(*expr2, env)?;
+            let v1 = eval(expr1, env)?;
+            let v2 = eval(expr2, env)?;
             match (v1,v2) {
                 (Value::Coord1(x), Value::Coord1(y)) => {
                     let aff = blst_p1_affine { x: x, y: y };
@@ -102,8 +102,8 @@ pub fn eval(expr: Expr, env: &HashMap<String, Value>) -> Result<Value, EvalError
         }
 
         Expr::Embed(expr1, expr2, _) => {
-            let v1 = eval(*expr1, env)?;
-            let v2 = eval(*expr2, env)?;
+            let v1 = eval(expr1, env)?;
+            let v2 = eval(expr2, env)?;
             match (v1, v2) {
                 (Value::Point1(p1), Value::Point2(p2)) => {
                     let mut fp12 = blst_fp12::default();
@@ -122,7 +122,7 @@ pub fn eval(expr: Expr, env: &HashMap<String, Value>) -> Result<Value, EvalError
         }
 
         Expr::Sqrt(inner, _) => {
-            let v = eval(*inner, env)?;
+            let v = eval(inner, env)?;
             let coord = match v {
                 Value::Coord1(fp) => fp,
                 _ => return Err(EvalError::TypeMismatchCoord1),
@@ -140,8 +140,8 @@ pub fn eval(expr: Expr, env: &HashMap<String, Value>) -> Result<Value, EvalError
         // the idea that it's a prime order subgroup. `map_to_g` didn't really work for me either
         // Hence the duplication of logic for MapToG1/MapToG2
         Expr::MapToG1(x_expr, y_expr, _) => {
-            let l = eval(*x_expr, env)?;
-            let r = eval(*y_expr, env)?;
+            let l = eval(x_expr, env)?;
+            let r = eval(y_expr, env)?;
             match (l, r) {
                 (Value::Coord1(x), Value::Coord1(y)) => {
                     let mut result = blst_p1::default();
@@ -153,8 +153,8 @@ pub fn eval(expr: Expr, env: &HashMap<String, Value>) -> Result<Value, EvalError
         },
 
         Expr::MapToG2(x_expr,y_expr, _) => {
-            let l = eval(*x_expr, env)?;
-            let r = eval(*y_expr, env)?;
+            let l = eval(x_expr, env)?;
+            let r = eval(y_expr, env)?;
             match (l, r) {
                 (Value::Coord2(x), Value::Coord2(y)) => {
                     let mut result = blst_p2::default();
@@ -166,8 +166,8 @@ pub fn eval(expr: Expr, env: &HashMap<String, Value>) -> Result<Value, EvalError
         },
 
         Expr::Mul(lhs, rhs, _) => {
-            let l = eval(*lhs, env)?;
-            let r = eval(*rhs, env)?;
+            let l = eval(lhs, env)?;
+            let r = eval(rhs, env)?;
             match (l, r) {
                 (Value::Point1(p), Value::Scalar(s)) | (Value::Scalar(s), Value::Point1(p)) => {
                     let mut result = blst_p1::default();
@@ -188,8 +188,8 @@ pub fn eval(expr: Expr, env: &HashMap<String, Value>) -> Result<Value, EvalError
         }
 
         Expr::Add(lhs, rhs, meta) => {
-            let l = eval(*lhs, env)?;
-            let r = eval(*rhs, env)?;
+            let l = eval(lhs, env)?;
+            let r = eval(rhs, env)?;
             match (l, r) {
                 (Value::Point1(p1), Value::Point1(p2)) => {
                     let mut out = blst_p1::default();
@@ -207,8 +207,8 @@ pub fn eval(expr: Expr, env: &HashMap<String, Value>) -> Result<Value, EvalError
 
                     Err(EvalError::TypeMismatchPointAdd {
                         source: meta.source.clone(),
-                        lhs_span: lhs.meta().span,
-                        rhs_span: rhs.meta().span,
+                        lhs_span: lhs.as_ref().meta().span,
+                        rhs_span: rhs.as_ref().meta().span,
                         lhs_type,
                         rhs_type,
                     })
@@ -216,8 +216,8 @@ pub fn eval(expr: Expr, env: &HashMap<String, Value>) -> Result<Value, EvalError
             }
         }
         Expr::Sub(lhs, rhs, _) => {
-            let l = eval(*lhs, env)?;
-            let r = eval(*rhs, env)?;
+            let l = eval(lhs, env)?;
+            let r = eval(rhs, env)?;
             match (l, r) {
                 (Value::Point1(p1), Value::Point1(mut p2)) => {
                     unsafe { blst_p1_cneg(&mut p2, true); }
@@ -235,7 +235,7 @@ pub fn eval(expr: Expr, env: &HashMap<String, Value>) -> Result<Value, EvalError
             }
         }
         Expr::Neg(inner, _) => {
-            let v = eval(*inner, env)?;
+            let v = eval(inner, env)?;
             match v {
                 Value::Point1(mut p) => {
                     unsafe { blst_p1_cneg(&mut p, true); }
@@ -259,7 +259,7 @@ pub fn eval(expr: Expr, env: &HashMap<String, Value>) -> Result<Value, EvalError
             }
         }
         Expr::Var(name, _) => {
-            env.get(&name).cloned().ok_or(EvalError::UnknownIdent(name))
+            env.get(name).cloned().ok_or(EvalError::UnknownIdent(name.clone()))
         }
     }
 }
