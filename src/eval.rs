@@ -28,7 +28,7 @@ pub fn eval(expr: &Expr, env: &HashMap<String, Value>) -> Result<Value, EvalErro
                 (Value::Coord6(x), Value::Coord6(y)) => {
                     Ok(Value::Coord12(blst_fp12 { fp6: [x, y] }))
                 }
-                _ => Err(EvalError::PairCanOnlyContainCoord1Or6 {
+                (v1,v2) => Err(EvalError::PairCanOnlyContainCoord1Or6 {
                     x_span: expr1.miette_span(),
                     y_span: expr2.miette_span(),
                     x_coord_type: v1.to_type(),
@@ -41,9 +41,9 @@ pub fn eval(expr: &Expr, env: &HashMap<String, Value>) -> Result<Value, EvalErro
             let v2 = eval(expr2, env)?;
             let v3 = eval(expr3, env)?;
 
-            match (v1, v2, v3) {
+            match (&v1, &v2, &v3) {
                 (Value::Coord2(x), Value::Coord2(y), Value::Coord2(z)) => {
-                    Ok(Value::Coord6(blst_fp6 { fp2: [x, y, z] }))
+                    Ok(Value::Coord6(blst_fp6 { fp2: [*x, *y, *z] }))
                 }
                 _ => Err(EvalError::TripleCanOnlyContainCoord2 {
                     x_span: expr1.miette_span(),
@@ -72,15 +72,15 @@ pub fn eval(expr: &Expr, env: &HashMap<String, Value>) -> Result<Value, EvalErro
                     unsafe { blst_p2_from_affine(&mut p, &aff); }
                     Ok(Value::Point2(p))
                 }
-                _ => Err(EvalError::PointCanOnlyContainCoord {
+                (v1,v2) => Err(EvalError::PointCanOnlyContainCoord {
                     x_span: expr1.miette_span(),
                     y_span: expr2.miette_span(),
-                    point_type: match (v1, v2) {
+                    point_type: match (&v1, &v2) {
                         (Value::Coord1(_), _) | (_, Value::Coord1(_)) => "Point1",
                         (Value::Coord2(_), _) | (_, Value::Coord2(_)) => "Point2",
                         _ => "Point",
                     }.to_string(),
-                    expected_coord_type: match (v1, v2) {
+                    expected_coord_type: match (&v1, &v2) {
                         (Value::Coord1(_), _) | (_, Value::Coord1(_)) => "Coord1",
                         (Value::Coord2(_), _) | (_, Value::Coord2(_)) => "Coord2",
                         _ => "Coord",
