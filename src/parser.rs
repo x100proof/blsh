@@ -78,11 +78,11 @@ pub fn parse_program(input: &str) -> Result<Statement, ParseError> {
         .map_err(|e| {
             ParseError::PestError {
                 span: match e.location {
-                    InputLocation::Pos(a) => (0, input.len()),
+                    InputLocation::Pos(a) => (a, input.len() - a),
                     InputLocation::Span(span) => span
 
                 },
-                message: "Could not parse".to_string()
+                message: "Could not parse this fragment".to_string()
             }
         })?;
     let pair = pairs.next().unwrap();
