@@ -258,36 +258,36 @@ pub fn pretty_let_to_string(name: &str, value: &Value) -> String {
     pretty_to_string(pretty_let(name, value))
 }
 
-fn pretty_error_add_mismatch<'a>(source: &str, lhs_span: (usize, usize), rhs_span: (usize, usize), 
+fn pretty_error_add_mismatch<'a>(source: &str, lhs_span: (usize, usize), rhs_span: (usize, usize),
                    lhs_type: &str, rhs_type: &str, message: &str) -> PP<'a> {
     let (lhs_start, lhs_end) = lhs_span;
     let (rhs_start, rhs_end) = rhs_span;
-    
+
     // Source line
     let source_pp = PP(RcDoc::text(source.to_string()));
-    
+
     // Underlines for LHS and RHS
     let lhs_underline = concat(vec![
         PP(RcDoc::text(" ".repeat(lhs_start))),
         styled(&"^".repeat(lhs_end - lhs_start), ansi_term::Colour::Red.bold())
     ]);
-    
+
     let rhs_underline = concat(vec![
         PP(RcDoc::text(" ".repeat(rhs_start))),
         styled(&"^".repeat(rhs_end - rhs_start), ansi_term::Colour::Red.bold())
     ]);
-    
+
     // Create a combined type annotation line with arrows pointing to each expression
     let mut type_line = String::new();
-    
+
     // Ensure we have valid span widths
     let lhs_width = if lhs_end > lhs_start { lhs_end - lhs_start } else { 1 };
     let rhs_width = if rhs_end > rhs_start { rhs_end - rhs_start } else { 1 };
-    
+
     // Calculate center points for arrows
     let lhs_center = lhs_start + (lhs_width / 2);
     let rhs_center = rhs_start + (rhs_width / 2);
-    
+
     // Determine where to place the type annotations
     let spacing = 2; // minimum space between type annotations
     let combined_length = lhs_type.len() + rhs_type.len() + spacing;
@@ -298,13 +298,13 @@ fn pretty_error_add_mismatch<'a>(source: &str, lhs_span: (usize, usize), rhs_spa
         // Not enough space, will place types at the end
         false
     };
-    
+
     if available_space {
         // Place types between the expressions with arrows pointing to each
         let lhs_arrow_start = lhs_center + 1;
         let rhs_arrow_end = rhs_center - 1;
         let mid_point = (lhs_arrow_start + rhs_arrow_end) / 2;
-        
+
         // Left expression arrow and type
         for i in 0..mid_point {
             if i < lhs_center {
@@ -315,16 +315,16 @@ fn pretty_error_add_mismatch<'a>(source: &str, lhs_span: (usize, usize), rhs_spa
                 type_line.push('─');
             }
         }
-        
+
         // Add left type
         type_line.push_str(&format!(" {} ", lhs_type));
-        
+
         // Add separator
         type_line.push_str("| ");
-        
+
         // Add right type
         type_line.push_str(&format!("{} ", rhs_type));
-        
+
         // Right expression arrow
         for i in (mid_point + lhs_type.len() + rhs_type.len() + 4)..=rhs_center {
             if i == rhs_center {
@@ -335,7 +335,7 @@ fn pretty_error_add_mismatch<'a>(source: &str, lhs_span: (usize, usize), rhs_spa
         }
     } else {
         // Not enough space between expressions, place types at the end with arrows
-        
+
         // Create arrows pointing to each expression
         for i in 0..=rhs_center {
             if i == lhs_center || i == rhs_center {
@@ -346,22 +346,22 @@ fn pretty_error_add_mismatch<'a>(source: &str, lhs_span: (usize, usize), rhs_spa
                 type_line.push(' ');
             }
         }
-        
+
         // Add types after the expressions
         type_line.push_str(&format!(" {} and {}", lhs_type, rhs_type));
     }
-    
+
     // Create the type annotation line
     let type_annotation_pp = styled(&type_line, ansi_term::Colour::Blue.bold());
-    
+
     // Error message
     let error_pp = styled(&format!("Error: {}", message), ansi_term::Colour::Red.bold());
-    
+
     // Combine everything
     concat(vec![
         source_pp, line(),
         concat(vec![lhs_underline, rhs_underline]), line(),
-        PP(RcDoc::text(type_annotation_pp.0)), line(),
+        type_annotation_pp, line(),
         error_pp
     ])
 }
@@ -386,16 +386,16 @@ impl std::fmt::Display for EvalError {
                 if !supports_color() {
                     return write!(f, "Can only add points (of the same type)");
                 }
-                
+
                 let error_doc = pretty_error_add_mismatch(
-                    source, 
-                    *lhs_span, 
-                    *rhs_span, 
-                    lhs_type, 
-                    rhs_type, 
+                    source,
+                    *lhs_span,
+                    *rhs_span,
+                    lhs_type,
+                    rhs_type,
                     "Can only add points (of the same type)"
                 );
-                
+
                 write!(f, "{}", pretty_to_string(error_doc))
             },
             EvalError::TypeMismatchNeg         => write!(f, "Can only negate Point1, Point2, Coord1, Coord2"),
