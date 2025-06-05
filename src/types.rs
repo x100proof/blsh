@@ -104,7 +104,7 @@ pub enum EvalError {
         expr_type: String,
     },
 
-    #[error("Scalars can only be multiplied with points")]
+    #[error("Scalars can only be multiplied with Point1 or Point2")]
     TypeMismatchMul {
         #[label("{lhs_type}")]
         lhs_span: ErrorSpan,
@@ -136,7 +136,7 @@ pub enum EvalError {
         type2: String,
     },
 
-    #[error("Can only add expressions of the same type")]
+    #[error("Can only add expressions of the same type (and type is Point1 or Point2)")]
     TypeMismatchPointAdd {
 
         #[label("{lhs_type}")]
@@ -156,7 +156,7 @@ pub enum EvalError {
         expr_type: String
     },
 
-    #[error("Can only subtract points (of the same type)")]
+    #[error("Can only subtract points of the same type (and type is Point1 or Point2)")]
     TypeMismatchPointSub {
         #[label("{lhs_type}")]
         lhs_span: ErrorSpan,
