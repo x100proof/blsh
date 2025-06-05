@@ -190,6 +190,10 @@ fn parse_primary(pair: Pair<Rule>) -> Result<Expr, ParseError> {
     debug!("Parsing primary: {}", source);
 
     match pair.as_rule() {
+        Rule::bool => {
+            let b = span.as_str() == "true";
+            Ok(Expr::LiteralBool(b, SpanInfo::from_span(span)))
+        }
         Rule::scalar => {
             let inner_pair = pair.into_inner().next().unwrap();
             let bytes = parse_unbounded_number(inner_pair)?;

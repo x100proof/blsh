@@ -9,9 +9,8 @@ pub fn eval(expr: &Expr, env: &HashMap<String, Value>) -> Result<Value, EvalErro
     debug!("Evaluating: {:?}", expr);
 
     match expr {
-        Expr::Scalar(bytes, _) => {
-            Ok(Value::Scalar(bytes.clone()))
-        }
+        Expr::LiteralBool(b, _) => Ok(Value::Bool(*b)),
+        Expr::Scalar(bytes, _) => Ok(Value::Scalar(bytes.clone())),
         Expr::Coord1(bytes, _) => {
             let mut fp = blst_fp::default();
             unsafe { blst_fp_from_bendian(&mut fp, bytes.as_ptr()) };
@@ -213,12 +212,7 @@ pub fn eval(expr: &Expr, env: &HashMap<String, Value>) -> Result<Value, EvalErro
             let l = &eval(lhs, env)?;
             let r = &eval(rhs, env)?;
             if l.equal_type(r) {
-                Err(EvalError::EqualityNotSupported {
-                    lhs_span: lhs.miette_span(),
-                    rhs_span: rhs.miette_span(),
-                    lhs_type: l.to_type(),
-                    rhs_type: r.to_type()
-                })
+                Ok(Value::Bool(l.is_equal(r)))
             } else {
                 Err(EvalError::EqualityOnSameTypesOnly {
                     lhs_span: lhs.miette_span(),

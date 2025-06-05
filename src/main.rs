@@ -18,7 +18,7 @@ mod types;
 use crate::ast::{Command, SpanInfo, Statement};
 use crate::eval::eval;
 use crate::parser::parse_program;
-use crate::types::{builtin_env, is_builtin, pretty_let_to_string, EvalError, Value};
+use crate::types::{builtin_env, is_reserved_word, pretty_let_to_string, EvalError, Value};
 
 
 // Debug configuration
@@ -124,7 +124,7 @@ fn colour_with(style: Style, s: String) -> String {
 }
 
 fn handle_let(input: String, name: String, expr: ast::Expr, ident_meta: SpanInfo, env: &mut HashMap<String, Value>) {
-    if is_builtin(&name) {
+    if is_reserved_word(&name) {
           eprintln!("{:?}",
              miette::Report::new(EvalError::CannotRedefineBuiltin{ ident: ident_meta.miette_span()}).with_source_code(input));
         return;

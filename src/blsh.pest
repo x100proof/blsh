@@ -19,6 +19,7 @@ neg_expr = { "-" ~ neg_expr | /*"-p-" ~ neg_expr | "-e1-" ~ neg_expr | "-e2-"  ~
 // Order is important here.
 // Put all rules for "reserved words" first
 primary     =  {
+    | bool
     | sqrt
     | map_to_g1
     | map_to_g2
@@ -78,3 +79,5 @@ map_to_g2 = { "map_to_g2" ~ "(" ~ expr ~ "," ~ expr ~ ")" }
 embed = { "embed" ~ "(" ~ expr ~ "," ~ expr ~ ")" }
 
 ident       =  @{ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")* }
+
+bool        = @{ "true" | "false" }

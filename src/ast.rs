@@ -56,6 +56,7 @@ impl fmt::Debug for SpanInfo {
 #[derive(Clone)]
 pub enum Expr {
     // SkScalar([u8; 32]), // distinguished from an ordinary scalar which can be unbounded
+    LiteralBool(bool, SpanInfo),
     Scalar(Box<[u8]>, SpanInfo), // bytes are in little-endian order
     Coord1([u8; 48], SpanInfo),
     CoordPair(Box<Expr>, Box<Expr>, SpanInfo),
@@ -80,6 +81,7 @@ pub enum Expr {
 impl Expr {
     pub fn span_info(&self) -> &SpanInfo {
         match self {
+            Expr::LiteralBool(_, span_info) => span_info,
             Expr::Scalar(_, span_info) => span_info,
             Expr::Coord1(_, span_info) => span_info,
             Expr::CoordPair(_, _, span_info) => span_info,
@@ -113,6 +115,7 @@ impl Expr {
 impl fmt::Debug for Expr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Expr::LiteralBool(b, span_info) => f.debug_tuple("LiteralBool").field(b).field(span_info).finish(),
             Expr::Scalar(bytes, span_info) => f.debug_tuple("Scalar").field(bytes).field(span_info).finish(),
             Expr::Coord1(bytes, span_info) => f.debug_tuple("Coord1").field(bytes).field(span_info).finish(),
             Expr::CoordPair(e1, e2, span_info) => f.debug_tuple("CoordPair").field(e1).field(e2).field(span_info).finish(),

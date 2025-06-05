@@ -14,9 +14,9 @@ type ErrorSpan = (usize, usize);
 
 #[derive(Debug, Error, Diagnostic)]
 pub enum EvalError {
-    #[error("Cannot redefine a built-in name")]
+    #[error("Cannot redefine a reserved word or built-in identifier")]
     CannotRedefineBuiltin {
-        #[label("Built-in identifier")]
+        #[label("Reserved word or built-in identifier")]
         ident: ErrorSpan,
     },
 
@@ -184,15 +184,6 @@ pub enum EvalError {
         rhs_type: String,
     },
 
-    #[error("Equality is not supported (yet)")]
-    EqualityNotSupported {
-        #[label("{lhs_type}")]
-        lhs_span: ErrorSpan,
-        #[label("{rhs_type}")]
-        rhs_span: ErrorSpan,
-        lhs_type: String,
-        rhs_type: String,
-    }
 }
 
 #[derive(Clone, Debug)]
@@ -392,7 +383,7 @@ fn pretty_coord12<'a>(fp12: &blst_fp12) -> PP<'a> {
 }
 
 fn pretty_bool<'a>(b: &bool) -> PP<'a> {
-    styled(if *b { "true" } else { "false" } , Fixed(19).normal())
+    styled(if *b { "true" } else { "false" } , Fixed(208).normal())
 }
 
 fn pretty_value<'a>(v: &Value) -> PP<'a> {
@@ -447,6 +438,21 @@ impl Value {
 
     pub fn equal_type(&self, other: &Self) -> bool {
         self.to_type() == other.to_type()
+    }
+
+    // Will panic if ever called on a value of different type
+    pub fn is_equal(&self, other: &Self) -> bool {
+        match (self, other) {
+          (Value::Scalar(bs1), Value::Scalar(bs2)) => bs1 == bs2,
+          (Value::Point1(a), Value::Point1(b)) => a == b,
+          (Value::Point2(a), Value::Point2(b)) => a == b,
+          (Value::Coord2(a), Value::Coord2(b)) => a == b,
+          (Value::Coord1(a), Value::Coord1(b)) => a == b,
+          (Value::Coord6(a), Value::Coord6(b)) => a == b,
+          (Value::Coord12(a), Value::Coord12(b)) => a == b,
+          (Value::Bool(a), Value::Bool(b)) => a == b,
+          _ => panic!("is_equal should never be called on different types"),
+        }
     }
 
     pub fn describe(&self) -> String {
@@ -519,6 +525,11 @@ pub fn builtin_env() -> HashMap<String, Value> {
     env
 }
 
+// These are words that could clash with identifiers
+fn non_builtin_reserved_words() ->  [String; 2] {
+    [ "true", "false"].map(|s|s.to_string())
+}
+
 fn builtins() -> [(String, Value); 10] {
     [ ("p1inf", Value::Point1(blst_p1::default())),
       ("p2inf", Value::Point2(blst_p2::default())),
@@ -533,9 +544,17 @@ fn builtins() -> [(String, Value); 10] {
     ].map(|(s,v)| (s.to_string(), v))
 }
 
-pub fn is_builtin(name: &str) -> bool {
-    builtins().iter().find(|(s, _)| *s == name).is_some()
+// FIXME: This code is so incredibly wasteful of resources
+pub fn is_reserved_word(name: &str) -> bool {
+    let builtins = builtins();
+    let non_builtin_reserved_words = non_builtin_reserved_words();
+    let mut combined= builtins.iter().map(|(s,_)| s).chain(non_builtin_reserved_words.iter());
+    combined.find(|s| *s == name).is_some()
 }
+
+// pub fn is_builtin(name: &str) -> bool {
+//     builtins().iter().find(|(s, _)| *s == name).is_some()
+// }
 
 fn get_terminal_width(default: usize) -> usize {
     if let Some((Width(w), _)) = terminal_size() {
