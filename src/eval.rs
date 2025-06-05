@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use crate::ast::{Expr};
-use crate::types::{EvalError, Value};
+use crate::eval_error::{EvalError};
+use crate::types::{Value};
 use blst::*;
 use num_bigint::BigUint;
 use log::debug;

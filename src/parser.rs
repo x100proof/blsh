@@ -2,11 +2,12 @@ use pest::{error::InputLocation, Parser};
 use pest::iterators::Pair;
 use pest_derive::Parser;
 use num_bigint::BigUint;
-use crate::ast::{Expr, Statement, Command, SpanInfo};
 use pest::Span;
 use log::debug;
 use miette::{self, Diagnostic};
 use thiserror::Error;
+
+use crate::ast::{Expr, Statement, Command, SpanInfo};
 
 type ErrorSpan = (usize, usize);
 

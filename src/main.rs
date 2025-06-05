@@ -12,13 +12,17 @@ use std::path::PathBuf;
 
 mod ast;
 mod eval;
+mod eval_error;
 mod parser;
 mod types;
 
+
 use crate::ast::{Command, SpanInfo, Statement};
 use crate::eval::eval;
+use crate::eval_error::EvalError;
 use crate::parser::parse_program;
-use crate::types::{builtin_env, is_reserved_word, pretty_let_to_string, EvalError, Value};
+use crate::types::{builtin_env, is_reserved_word, pretty_let_to_string, Value};
+
 
 
 // Debug configuration
