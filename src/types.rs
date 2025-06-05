@@ -173,10 +173,31 @@ pub enum EvalError {
         #[label("unknown")]
         span: ErrorSpan
     },
+
+    #[error("Equality is not supported at all yet, but definitely not on unequal types")]
+    EqualityOnSameTypesOnly {
+        #[label("{lhs_type}")]
+        lhs_span: ErrorSpan,
+        #[label("{rhs_type}")]
+        rhs_span: ErrorSpan,
+        lhs_type: String,
+        rhs_type: String,
+    },
+
+    #[error("Equality is not supported (yet)")]
+    EqualityNotSupported {
+        #[label("{lhs_type}")]
+        lhs_span: ErrorSpan,
+        #[label("{rhs_type}")]
+        rhs_span: ErrorSpan,
+        lhs_type: String,
+        rhs_type: String,
+    }
 }
 
 #[derive(Clone, Debug)]
 pub enum Value {
+    Bool(bool),
     Scalar(Box<[u8]>),
     Point1(blst_p1),
     Point2(blst_p2),
@@ -370,6 +391,10 @@ fn pretty_coord12<'a>(fp12: &blst_fp12) -> PP<'a> {
                 Brackets::Square, b)
 }
 
+fn pretty_bool<'a>(b: &bool) -> PP<'a> {
+    styled(if *b { "true" } else { "false" } , Fixed(19).normal())
+}
+
 fn pretty_value<'a>(v: &Value) -> PP<'a> {
     match v {
         Value::Point1(p) => pretty_point1(p).with_type("Point1"),
@@ -379,6 +404,7 @@ fn pretty_value<'a>(v: &Value) -> PP<'a> {
         Value::Coord2(fp2) => pretty_coord2(fp2).with_type("Coord2"),
         Value::Coord6(fp6) => pretty_coord6(fp6).with_type("Coord6"),
         Value::Coord12(fp12) => pretty_coord12(fp12).with_type("Coord12"),
+        Value::Bool(b) => pretty_bool(b).with_type("Bool"),
     }
 }
 
@@ -408,16 +434,20 @@ impl std::fmt::Display for Value {
 impl Value {
     pub fn to_type(&self) -> String {
         match self {
-            Value::Scalar(_) => "Scalar".to_string(),
-            Value::Point1(_) => "Point1".to_string(),
-            Value::Point2(_) => "Point2".to_string(),
-            Value::Coord1(_) => "Coord1".to_string(),
-            Value::Coord2(_) => "Coord2".to_string(),
-            Value::Coord6(_) => "Coord6".to_string(),
-            Value::Coord12(_) => "Coord12".to_string(),
-        }
+            Value::Scalar(_)  => "Scalar",
+            Value::Point1(_)  => "Point1",
+            Value::Point2(_)  => "Point2",
+            Value::Coord1(_)  => "Coord1",
+            Value::Coord2(_)  => "Coord2",
+            Value::Coord6(_)  => "Coord6",
+            Value::Coord12(_) => "Coord12",
+            Value::Bool(_)    => "Bool",
+        }.to_string()
     }
 
+    pub fn equal_type(&self, other: &Self) -> bool {
+        self.to_type() == other.to_type()
+    }
 
     pub fn describe(&self) -> String {
         match self {

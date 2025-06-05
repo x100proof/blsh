@@ -7,8 +7,10 @@ statement   =  { let_stmt | command_stmt | expr }
 let_stmt    =  { "let" ~ ident ~ "=" ~ expr }
 command_stmt = { "info" ~ expr }
 
-expr        =  { mul_expr ~ (add_op ~ mul_expr)* }
-add_op      =  { "+" | "-" }
+expr        = { eq_expr ~ (eq_op ~ eq_expr)* }
+eq_expr     = { mul_expr ~ (add_op ~ mul_expr)* }
+add_op      = { "+" | "-" }
+eq_op       = { "==" }
 
 mul_expr    =  { neg_expr ~ ("*" ~ neg_expr)* }
 

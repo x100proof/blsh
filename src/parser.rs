@@ -120,19 +120,37 @@ fn parse_expr(pair: Pair<Rule>) -> Result<Expr, ParseError> {
             let mut inner = pair.into_inner();
             let mut lhs = parse_expr(inner.next().unwrap())?;
             while let Some(op_pair) = inner.next() {
+                debug!("op_pair {:?}", op_pair);
                 let rhs = parse_expr(inner.next().unwrap())?;
                 let op_str = op_pair.as_str();
                 let span_info = lhs.span_info().merge(rhs.span_info());
-                // debug!("parse lhs: {:?}, rhs: {:?}, span: {:?}, lhs_span: {:?}", lhs, rhs, span, lhs_span);
                 lhs = match op_str {
-                    "+" => Expr::Add(Box::new(lhs), Box::new(rhs), span_info),
-                    "-" => Expr::Sub(Box::new(lhs), Box::new(rhs), span_info),
+                    "=="  => Expr::Equal(Box::new(lhs), Box::new(rhs), span_info),
                     _ => return Err(ParseError::UnexpectedToken {
                         span: span_to_error_span(span),
                     }),
                 };
             }
             Ok(lhs)
+        }
+        Rule::eq_expr => {
+            let mut inner = pair.into_inner();
+            let mut lhs = parse_expr(inner.next().unwrap())?;
+            while let Some(op_pair) = inner.next() {
+                let rhs = parse_expr(inner.next().unwrap())?;
+                let op_str = op_pair.as_str();
+                let span_info = lhs.span_info().merge(rhs.span_info());
+                // debug!("parse lhs: {:?}, rhs: {:?}, span: {:?}, lhs_span: {:?}", lhs, rhs, span, lhs_span);
+                lhs = match op_str {
+                    "+"  => Expr::Add(Box::new(lhs), Box::new(rhs), span_info),
+                    "-"  => Expr::Sub(Box::new(lhs), Box::new(rhs), span_info),
+                    _ => return Err(ParseError::UnexpectedToken {
+                        span: span_to_error_span(span),
+                    }),
+                };
+            }
+            Ok(lhs)
+
         }
         Rule::mul_expr => {
             let mut inner = pair.into_inner();

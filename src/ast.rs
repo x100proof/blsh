@@ -69,6 +69,7 @@ pub enum Expr {
     Sqrt(Box<Expr>, SpanInfo),
     MapToG1(Box<Expr>,Box<Expr>, SpanInfo),
     MapToG2(Box<Expr>,Box<Expr>, SpanInfo),
+    Equal(Box<Expr>, Box<Expr>, SpanInfo),
     Mul(Box<Expr>, Box<Expr>, SpanInfo), // Point[1/2] * Scalar or Scalar * Point[1/2]
     Add(Box<Expr>, Box<Expr>, SpanInfo), // Point[1/2] + Point[1/2]
     Sub(Box<Expr>, Box<Expr>, SpanInfo), // Point[1/2] - Point[1/2]
@@ -92,6 +93,7 @@ impl Expr {
             Expr::Sqrt(_, span_info) => span_info,
             Expr::MapToG1(_, _, span_info) => span_info,
             Expr::MapToG2(_, _, span_info) => span_info,
+            Expr::Equal(_, _, span_info) => span_info,
             Expr::Mul(_, _, span_info) => span_info,
             Expr::Add(_, _, span_info) => span_info,
             Expr::Sub(_, _, span_info) => span_info,
@@ -124,6 +126,7 @@ impl fmt::Debug for Expr {
             Expr::Sqrt(e, span_info) => f.debug_tuple("Sqrt").field(e).field(span_info).finish(),
             Expr::MapToG1(e1, e2, span_info) => f.debug_tuple("MapToG1").field(e1).field(e2).field(span_info).finish(),
             Expr::MapToG2(e1, e2, span_info) => f.debug_tuple("MapToG2").field(e1).field(e2).field(span_info).finish(),
+            Expr::Equal(e1, e2, span_info) => f.debug_tuple("Equal").field(e1).field(e2).field(span_info).finish(),
             Expr::Mul(e1, e2, span_info) => f.debug_tuple("Mul").field(e1).field(e2).field(span_info).finish(),
             Expr::Add(e1, e2, span_info) => f.debug_tuple("Add").field(e1).field(e2).field(span_info).finish(),
             Expr::Sub(e1, e2, span_info) => f.debug_tuple("Sub").field(e1).field(e2).field(span_info).finish(),

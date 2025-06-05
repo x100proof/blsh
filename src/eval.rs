@@ -209,6 +209,26 @@ pub fn eval(expr: &Expr, env: &HashMap<String, Value>) -> Result<Value, EvalErro
             }
         },
 
+        Expr::Equal(lhs, rhs, _) => {
+            let l = &eval(lhs, env)?;
+            let r = &eval(rhs, env)?;
+            if l.equal_type(r) {
+                Err(EvalError::EqualityNotSupported {
+                    lhs_span: lhs.miette_span(),
+                    rhs_span: rhs.miette_span(),
+                    lhs_type: l.to_type(),
+                    rhs_type: r.to_type()
+                })
+            } else {
+                Err(EvalError::EqualityOnSameTypesOnly {
+                    lhs_span: lhs.miette_span(),
+                    rhs_span: rhs.miette_span(),
+                    lhs_type: l.to_type(),
+                    rhs_type: r.to_type()
+                })
+            }
+        }
+
         Expr::Mul(lhs, rhs, _) => {
             let l = eval(lhs, env)?;
             let r = eval(rhs, env)?;
