@@ -260,12 +260,18 @@ pub fn eval(expr: &Expr, env: &HashMap<String, Value>) -> Result<Value, EvalErro
                 },
                 (Value::Point2(p), Value::Scalar(s)) | (Value::Scalar(s), Value::Point2(p)) => {
                     let mut result = blst_p2::default();
+                    debug!("num bits: {:?}", s.len() * 8);
                     unsafe { blst_p2_mult(&mut result, &p, s.as_ptr(), s.len() * 8); }
                     Ok(Value::Point2(result))
                 },
                 (Value::Scalar(s1), Value::Scalar(s2)) => {
                     let r = BigUint::from_bytes_le(&s1) * BigUint::from_bytes_le(&s2);
                     Ok(Value::Scalar(r.to_bytes_le().into_boxed_slice()))
+                },
+                (Value::Coord1(a), Value::Coord1(b)) => {
+                    let mut result = blst_fp::default();
+                    unsafe { blst_fp_mul(&mut result, &a, &b)}
+                    Ok(Value::Coord1(result))
                 },
                 (Value::Coord12(a), Value::Coord12(b)) => {
                     let mut result = blst_fp12::default();
@@ -295,6 +301,16 @@ pub fn eval(expr: &Expr, env: &HashMap<String, Value>) -> Result<Value, EvalErro
                     unsafe { blst_p2_add_or_double(&mut out, &p1, &p2); }
                     Ok(Value::Point2(out))
                 }
+                (Value::Coord1(a), Value::Coord1(b)) => {
+                    let mut out = blst_fp::default();
+                    unsafe { blst_fp_add(&mut out, &a, &b); }
+                    Ok(Value::Coord1(out))
+                }
+                (Value::Coord2(a), Value::Coord2(b)) => {
+                    let mut out = blst_fp2::default();
+                    unsafe { blst_fp2_add(&mut out, &a, &b); }
+                    Ok(Value::Coord2(out))
+                }
                 (l,r) => Err(EvalError::TypeMismatchPointAdd {
                         lhs_span: lhs.miette_span(),
                         rhs_span: rhs.miette_span(),
@@ -318,6 +334,16 @@ pub fn eval(expr: &Expr, env: &HashMap<String, Value>) -> Result<Value, EvalErro
                     let mut out = blst_p2::default();
                     unsafe { blst_p2_add_or_double(&mut out, &p1, &p2); }
                     Ok(Value::Point2(out))
+                }
+                (Value::Coord1(a), Value::Coord1(b)) => {
+                    let mut out = blst_fp::default();
+                    unsafe { blst_fp_sub(&mut out, &a, &b); }
+                    Ok(Value::Coord1(out))
+                }
+                (Value::Coord2(a), Value::Coord2(b)) => {
+                    let mut out = blst_fp2::default();
+                    unsafe { blst_fp2_sub(&mut out, &a, &b); }
+                    Ok(Value::Coord2(out))
                 }
                 (l,r) => Err(EvalError::TypeMismatchPointSub {
                     lhs_span: lhs.miette_span(),

@@ -109,7 +109,7 @@ pub enum EvalError {
         expr_type: String,
     },
 
-    #[error("Scalars can only be multiplied with Point1 or Point2")]
+    #[error("These two expressions can't be multiplied")]
     TypeMismatchMul {
         #[label("{lhs_type}")]
         lhs_span: ErrorSpan,

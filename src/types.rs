@@ -309,7 +309,14 @@ impl Value {
                     hex::encode(compressed)
                 )
             }
-
+            Value::Coord12(fp12) => {
+                let in_gt = unsafe { blst_fp12_in_group(fp12) };
+                format!(
+                    "{}\nIn GT: {}",
+                    format!("{}", self),
+                    in_gt,
+                )
+            }
             _ => format!("{}", self),
         }
 
