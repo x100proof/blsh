@@ -153,22 +153,47 @@ pub fn eval(expr: &Expr, env: &HashMap<String, Value>) -> Result<Value, EvalErro
             }
         }
 
+        Expr::Inv(inner, _) => {
+            let v = eval(inner, env)?;
+            match v {
+                Value::Coord12(fp12) => {
+                    let mut result = blst_fp12::default();
+                    unsafe { blst_fp12_inverse(&mut result, &fp12); }
+                    Ok(Value::Coord12(result))
+                },
+                v => Err(EvalError::InvExpectsCoord12 { span: inner.miette_span(), expr_type: v.to_type() })
+            }
+        }
+
+        Expr::Sqr(inner, _) => {
+            let v = eval(inner, env)?;
+            match v {
+                Value::Coord12(fp12) => {
+                    let mut result = blst_fp12::default();
+                    unsafe { blst_fp12_sqr(&mut result, &fp12); }
+                    Ok(Value::Coord12(result))
+                },
+                v => Err(EvalError::SqrExpectsCoord12 { span: inner.miette_span(), expr_type: v.to_type() })
+            }
+        }
+
         Expr::Sqrt(inner, _) => {
             let v = eval(inner, env)?;
-            let coord = match v {
-                Value::Coord1(fp) => fp,
-                v => return Err(EvalError::SqrtExpectsCoord1 { span: inner.miette_span(), expr_type: v.to_type()}),
-            };
-            if unsafe { blst_fp_is_square(&coord) } {
-                let mut result = blst_fp::default();
-                unsafe { blst_fp_sqrt(&mut result, &coord); }
-                Ok(Value::Coord1(result))
-            } else {
-                Err(EvalError::NotASquare {
-                    span: inner.miette_span(),
-                })
+            match v {
+                Value::Coord1(fp) => {
+                    if unsafe { blst_fp_is_square(&fp) } {
+                        let mut result = blst_fp::default();
+                        unsafe { blst_fp_sqrt(&mut result, &fp); }
+                        Ok(Value::Coord1(result))
+                    } else {
+                        Err(EvalError::NotASquare {
+                            span: inner.miette_span(),
+                        })
+                    }
+                }
+                v => Err(EvalError::SqrtExpectsCoord1 { span: inner.miette_span(), expr_type: v.to_type()}),
             }
-        },
+        }
 
         // 100proof: I had considered just calling the primitive `map` but then you lose
         // the idea that it's a prime order subgroup. `map_to_g` didn't really work for me either
@@ -241,6 +266,11 @@ pub fn eval(expr: &Expr, env: &HashMap<String, Value>) -> Result<Value, EvalErro
                 (Value::Scalar(s1), Value::Scalar(s2)) => {
                     let r = BigUint::from_bytes_le(&s1) * BigUint::from_bytes_le(&s2);
                     Ok(Value::Scalar(r.to_bytes_le().into_boxed_slice()))
+                },
+                (Value::Coord12(a), Value::Coord12(b)) => {
+                    let mut result = blst_fp12::default();
+                    unsafe { blst_fp12_mul(&mut result, &a, &b)}
+                    Ok(Value::Coord12(result))
                 },
                 (l,r) => Err(EvalError::TypeMismatchMul {
                     lhs_span: lhs.miette_span(),

@@ -20,7 +20,9 @@ neg_expr = { "-" ~ neg_expr | /*"-p-" ~ neg_expr | "-e1-" ~ neg_expr | "-e2-"  ~
 // Put all rules for "reserved words" first
 primary     =  {
     | bool
-    | sqrt
+    | sqrt // must come before sqr otherwise "sqr" gets consumed first
+    | sqr
+    | inv
     | map_to_g1
     | map_to_g2
     | embed
@@ -74,6 +76,9 @@ dec        = @{ ASCII_DIGIT+ }
 hex   = @{ "0x" ~ ASCII_HEX_DIGIT+ }
 
 sqrt  = { "sqrt" ~ "(" ~ expr ~ ")" }
+sqr   = { "sqrt" ~ "(" ~ expr ~ ")" } // just for Coord12
+inv   = { "inv"  ~ "(" ~ expr ~ ")" } // just for Coord12
+
 map_to_g1 = { "map_to_g1" ~ "(" ~ expr ~ "," ~ expr ~ ")" }
 map_to_g2 = { "map_to_g2" ~ "(" ~ expr ~ "," ~ expr ~ ")" }
 embed = { "embed" ~ "(" ~ expr ~ "," ~ expr ~ ")" }

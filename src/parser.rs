@@ -330,6 +330,20 @@ fn parse_primary(pair: Pair<Rule>) -> Result<Expr, ParseError> {
             Ok(Expr::Point2Uncompressed(bytes, span_info))
         }
 
+        Rule::inv => {
+            let inner = pair.into_inner().next().unwrap();
+            let arg = parse_expr(inner)?;
+            let span_info = SpanInfo::from_span(span);
+            Ok(Expr::Inv(Box::new(arg), span_info))
+        }
+
+        Rule::sqr => {
+            let inner = pair.into_inner().next().unwrap();
+            let arg = parse_expr(inner)?;
+            let span_info = SpanInfo::from_span(span);
+            Ok(Expr::Sqr(Box::new(arg), span_info))
+        }
+
         Rule::sqrt => {
             let inner = pair.into_inner().next().unwrap();
             let arg = parse_expr(inner)?;

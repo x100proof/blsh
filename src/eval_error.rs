@@ -88,6 +88,20 @@ pub enum EvalError {
         span: ErrorSpan,
     },
 
+    #[error("`inv` expects a Coord12 operand")]
+    InvExpectsCoord12 {
+        #[label("{expr_type}")]
+        span: ErrorSpan,
+        expr_type: String,
+    },
+
+    #[error("`sqr` expects a Coord12 operand")]
+    SqrExpectsCoord12 {
+        #[label("{expr_type}")]
+        span: ErrorSpan,
+        expr_type: String,
+    },
+
     #[error("`sqrt` expects a Coord1 operand")]
     SqrtExpectsCoord1 {
         #[label("{expr_type}")]

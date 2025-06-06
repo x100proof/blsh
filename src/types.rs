@@ -280,11 +280,9 @@ impl Value {
     pub fn describe(&self) -> String {
         match self {
             Value::Point1(p) => {
-                let mut aff = blst_p1_affine::default();
-                unsafe { blst_p1_to_affine(&mut aff, p) };
                 let mut compressed = [0u8; 48];
                 unsafe { blst_p1_compress(compressed.as_mut_ptr(), p) };
-                let on_curve = unsafe { blst_p1_affine_on_curve(&aff) };
+                let on_curve = unsafe { blst_p1_on_curve(p) };
                 let in_g1 = unsafe { blst_p1_in_g1(p) };
                 let is_inf = unsafe { blst_p1_is_inf(p) };
                 format!(
@@ -297,11 +295,9 @@ impl Value {
                 )
             }
             Value::Point2(p) => {
-                let mut aff = blst_p2_affine::default();
-                unsafe { blst_p2_to_affine(&mut aff, p) };
                 let mut compressed = [0u8; 96];
                 unsafe { blst_p2_compress(compressed.as_mut_ptr(), p) };
-                let on_curve = unsafe { blst_p2_affine_on_curve(&aff) };
+                let on_curve = unsafe { blst_p2_on_curve(p) };
                 let in_g2 = unsafe { blst_p2_in_g2(p) };
                 let is_inf = unsafe { blst_p2_is_inf(p) };
                 format!(
