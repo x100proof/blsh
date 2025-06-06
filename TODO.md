@@ -1,6 +1,7 @@
 ## TODO
 
 
+- [ ] Add more builtins but one for each type
 - [ ] Add tab completion for environment
 - [ ] Add a "toggle_succinct" command
 - [ ] Add "help" command

@@ -82,10 +82,11 @@ pub enum EvalError {
         pt_type: String,
     },
 
-    #[error("No square root for this Coord1 value")]
+    #[error("No square root for this {expr_type} value")]
     NotASquare {
-        #[label("Coord1")]
+        #[label("{expr_type}")]
         span: ErrorSpan,
+        expr_type: String,
     },
 
     #[error("`inv` expects a Coord12 operand")]
@@ -102,8 +103,8 @@ pub enum EvalError {
         expr_type: String,
     },
 
-    #[error("`sqrt` expects a Coord1 operand")]
-    SqrtExpectsCoord1 {
+    #[error("`sqrt` expects a Coord1 or Coord2 operand")]
+    SqrtExpectsCoords {
         #[label("{expr_type}")]
         span: ErrorSpan,
         expr_type: String,

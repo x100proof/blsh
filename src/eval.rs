@@ -188,10 +188,23 @@ pub fn eval(expr: &Expr, env: &HashMap<String, Value>) -> Result<Value, EvalErro
                     } else {
                         Err(EvalError::NotASquare {
                             span: inner.miette_span(),
+                            expr_type: v.to_type(),
                         })
                     }
                 }
-                v => Err(EvalError::SqrtExpectsCoord1 { span: inner.miette_span(), expr_type: v.to_type()}),
+                Value::Coord2(fp2) => {
+                    if unsafe { blst_fp2_is_square(&fp2) } {
+                        let mut result = blst_fp2::default();
+                        unsafe { blst_fp2_sqrt(&mut result, &fp2); }
+                        Ok(Value::Coord2(result))
+                    } else {
+                        Err(EvalError::NotASquare {
+                            span: inner.miette_span(),
+                            expr_type: v.to_type(),
+                        })
+                    }
+                }
+                v => Err(EvalError::SqrtExpectsCoords { span: inner.miette_span(), expr_type: v.to_type()}),
             }
         }
 
@@ -272,6 +285,11 @@ pub fn eval(expr: &Expr, env: &HashMap<String, Value>) -> Result<Value, EvalErro
                     let mut result = blst_fp::default();
                     unsafe { blst_fp_mul(&mut result, &a, &b)}
                     Ok(Value::Coord1(result))
+                },
+                (Value::Coord2(a), Value::Coord2(b)) => {
+                    let mut result = blst_fp2::default();
+                    unsafe { blst_fp2_mul(&mut result, &a, &b)}
+                    Ok(Value::Coord2(result))
                 },
                 (Value::Coord12(a), Value::Coord12(b)) => {
                     let mut result = blst_fp12::default();
