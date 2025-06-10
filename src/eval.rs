@@ -266,6 +266,10 @@ pub fn eval(expr: &Expr, env: &HashMap<String, Value>) -> Result<Value, EvalErro
             let l = eval(lhs, env)?;
             let r = eval(rhs, env)?;
             match (l, r) {
+                (Value::Scalar(s1), Value::Scalar(s2)) => {
+                    let r = BigUint::from_bytes_le(&s1) * BigUint::from_bytes_le(&s2);
+                    Ok(Value::Scalar(r.to_bytes_le().into_boxed_slice()))
+                },
                 (Value::Point1(p), Value::Scalar(s)) | (Value::Scalar(s), Value::Point1(p)) => {
                     let mut result = blst_p1::default();
                     unsafe { blst_p1_mult(&mut result, &p, s.as_ptr(), s.len() * 8); }
@@ -276,10 +280,6 @@ pub fn eval(expr: &Expr, env: &HashMap<String, Value>) -> Result<Value, EvalErro
                     debug!("num bits: {:?}", s.len() * 8);
                     unsafe { blst_p2_mult(&mut result, &p, s.as_ptr(), s.len() * 8); }
                     Ok(Value::Point2(result))
-                },
-                (Value::Scalar(s1), Value::Scalar(s2)) => {
-                    let r = BigUint::from_bytes_le(&s1) * BigUint::from_bytes_le(&s2);
-                    Ok(Value::Scalar(r.to_bytes_le().into_boxed_slice()))
                 },
                 (Value::Coord1(a), Value::Coord1(b)) => {
                     let mut result = blst_fp::default();
@@ -309,6 +309,10 @@ pub fn eval(expr: &Expr, env: &HashMap<String, Value>) -> Result<Value, EvalErro
             let l = eval(lhs, env)?;
             let r = eval(rhs, env)?;
             match (l, r) {
+                (Value::Scalar(s1), Value::Scalar(s2)) => {
+                    let r = BigUint::from_bytes_le(&s1) + BigUint::from_bytes_le(&s2);
+                    Ok(Value::Scalar(r.to_bytes_le().into_boxed_slice()))
+                },
                 (Value::Point1(p1), Value::Point1(p2)) => {
                     let mut out = blst_p1::default();
                     unsafe { blst_p1_add_or_double(&mut out, &p1, &p2); }

@@ -1,6 +1,7 @@
 ## TODO
 
 
+- [ ] Change "In G1?" to "G1 subgroup check?"
 - [ ] Add more builtins but one for each type
 - [ ] Add tab completion for environment
 - [ ] Add a "toggle_succinct" command
