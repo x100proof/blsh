@@ -156,9 +156,20 @@ pub fn eval(expr: &Expr, env: &HashMap<String, Value>) -> Result<Value, EvalErro
             }
         }
 
+        // FIXME: Distinguish multiplicative inverse from exponentiation inverse
         Expr::Inv(inner, _) => {
             let v = eval(inner, env)?;
             match v {
+                Value::Coord1(fp) => {
+                    let mut result = blst_fp::default();
+                    unsafe { blst_fp_inverse(&mut result, &fp); }
+                    Ok(Value::Coord1(result))
+                },
+                Value::Coord2(fp2) => {
+                    let mut result = blst_fp2::default();
+                    unsafe { blst_fp2_inverse(&mut result, &fp2); }
+                    Ok(Value::Coord2(result))
+                },
                 Value::Coord12(fp12) => {
                     let mut result = blst_fp12::default();
                     unsafe { blst_fp12_inverse(&mut result, &fp12); }
@@ -210,6 +221,18 @@ pub fn eval(expr: &Expr, env: &HashMap<String, Value>) -> Result<Value, EvalErro
                 v => Err(EvalError::SqrtExpectsCoords { span: inner.miette_span(), expr_type: v.to_type_string()}),
             }
         }
+        Expr::Pow(e1, e2, _) => {
+            let v1 = eval(e1, env)?;
+            let v2 = eval(e2, env)?;
+            match (&v1, &v2) {
+                (Value::Coord1(x), Value::Coord1(e)) =>
+                    Ok(Value::Coord1(fp_pow(*x,*e))),
+                _ => todo!()
+            }
+
+        }
+
+
         Expr::MillerLoop(inner, _) => {
             let v = eval(inner, env)?;
             let eval_error = EvalError::MillerLoopMustContainListOfMillerPairs { span: inner.miette_span(),
@@ -499,3 +522,26 @@ fn check_deserialize_error(err: BLST_ERROR, span: (usize, usize), curve: Curve) 
     };
     Err(e)
 }
+
+fn fp_pow(x: blst_fp, e: blst_fp) -> blst_fp {
+    let mut exp = [0u8; 48];
+    unsafe { blst_bendian_from_fp(exp.as_mut_ptr(), &e)};
+    let mut result = blst_fp::default();
+    let mut bytes: [u8;48] = [0u8;48];
+    bytes[bytes.len() - 1] = 1u8;
+    let mut acc = x.clone();
+    unsafe { blst_fp_from_bendian(&mut result, bytes.as_ptr()) };
+    for limb in exp.iter().rev() {
+        for i in 0..8 {
+            if ((limb >> i) & 1) != 0 {
+                // result = result * acc
+                unsafe { blst_fp_mul(&mut result, &result, &acc) };
+            }
+            unsafe { blst_fp_sqr(&mut acc, &acc) };
+        }
+    }
+    result
+}
+
+
+

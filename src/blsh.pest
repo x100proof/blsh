@@ -22,6 +22,7 @@ primary     =  {
     | bool
     | sqrt // must come before sqr otherwise "sqr" gets consumed first
     | sqr
+    | pow
     | miller_loop
     | inv
     | map_to_g1
@@ -79,7 +80,8 @@ dec        = @{ ASCII_DIGIT+ }
 hex   = @{ "0x" ~ ASCII_HEX_DIGIT+ }
 
 sqrt  = { "sqrt" ~ "(" ~ expr ~ ")" }
-sqr   = { "sqrt" ~ "(" ~ expr ~ ")" } // just for Coord12
+sqr   = { "sqr"  ~ "(" ~ expr ~ ")" } // just for Coord12
+pow   = { "pow"  ~ "(" ~ expr ~ "," ~ expr ~ ")" }
 inv   = { "inv"  ~ "(" ~ expr ~ ")" } // just for Coord12
 miller_loop = { "miller_loop" ~ "(" ~ expr ~ ")"}
 
