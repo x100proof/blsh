@@ -310,12 +310,12 @@ impl Value {
                 )
             }
             Value::Coord12(fp12) => {
-                let in_gt = unsafe { blst_fp12_in_group(fp12) };
+                let check_gt = unsafe { blst_fp12_in_group(fp12) };
                 let is_one = unsafe { blst_fp12_is_one(fp12) } ;
                 format!(
-                    "{}\nIn GT?: {}\nis 1?: {}",
+                    "{}\nSubgroup check for GT?: {}\nIs 1?: {}",
                     format!("{}", self),
-                    in_gt,
+                    check_gt,
                     is_one,
                 )
             }
