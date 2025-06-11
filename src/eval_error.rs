@@ -3,7 +3,7 @@ use miette::{self, Diagnostic};
 
 type ErrorSpan = (usize, usize);
 
-#[derive(Debug, Error, Diagnostic)]
+#[derive(Debug, Error, Diagnostic, Clone)]
 pub enum EvalError {
     #[error("Cannot redefine a reserved word or built-in identifier")]
     CannotRedefineBuiltin {

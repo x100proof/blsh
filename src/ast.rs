@@ -79,7 +79,7 @@ pub enum Expr {
     Sub(Box<Expr>, Box<Expr>, SpanInfo), // Point[1/2] - Point[1/2]
     Neg(Box<Expr>, SpanInfo),            // -Point[1/2]
     Var(String, SpanInfo),
-    List(Vec<Box<Expr>>, SpanInfo),
+    List(Vec<Expr>, SpanInfo),
 }
 
 impl Expr {

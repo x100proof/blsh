@@ -19,7 +19,7 @@ pub enum Value {
     Coord6(blst_fp6),
     Coord12(blst_fp12),
     MillerPair(blst_p1, blst_p2),
-    List(Vec<Box<Value>>),
+    List(Vec<Value>),
 }
 
 enum Brackets {
@@ -222,7 +222,7 @@ fn pretty_miller_pair<'a>(p1: &blst_p1, p2: &blst_p2) -> PP<'a> {
     pretty_pair(pretty_point1(p1).nest(2), pretty_point2(p2).nest(2), COORD_BRACKETS_OUTER, Brightness::Medium)
 }
 
-fn pretty_array<'a>(vs: &Vec<Box<Value>>) -> PP<'a> {
+fn pretty_array<'a>(vs: &Vec<Value>) -> PP<'a> {
     intersperse(vs.into_iter().map(|v| pretty_value_without_type(&v)).collect::<Vec<_>>(),
                 punct(",", Brightness::Light) + line_()).wrap_brackets(Brackets::Square, Brightness::Light)
 
@@ -320,7 +320,7 @@ impl Value {
             Value::List(vs) => ValueType::List(Box::new(vs[0].to_type())),
         }
     }
-    
+
     pub fn to_type_string(&self) -> String {
         self.to_type().to_string()
     }

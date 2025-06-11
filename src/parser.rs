@@ -405,10 +405,10 @@ fn parse_list_expr(pair: Pair<Rule>) -> Result<Expr, ParseError> {
     let mut inner = pair.into_inner();
     let first = &parse_expr(inner.next().unwrap())?;
     let mut span_info = first.span_info().to_owned();
-    let mut elems = vec![Box::new(first.clone())];
+    let mut elems = vec![first.clone()];
     while let Some(next_pair) = inner.next() {
         let next = &parse_expr(next_pair)?;
-        elems.push(Box::new(next.clone()));
+        elems.push(next.clone());
         span_info = span_info.merge(next.span_info());
     }
     Ok(Expr::List(elems, span_info.to_owned()))

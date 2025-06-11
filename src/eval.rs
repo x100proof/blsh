@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use crate::ast::{Expr};
 use crate::eval_error::{EvalError};
-use crate::types::{Value};
+use crate::types::{Value, ValueType};
 use blst::*;
 use num_bigint::BigUint;
 use log::debug;
@@ -212,11 +212,35 @@ pub fn eval(expr: &Expr, env: &HashMap<String, Value>) -> Result<Value, EvalErro
         }
         Expr::MillerLoop(inner, _) => {
             let v = eval(inner, env)?;
+            let eval_error = EvalError::MillerLoopMustContainListOfMillerPairs { span: inner.miette_span(),
+                                                                                            expr_type: v.to_type_string()};
             match v {
-                Value::List(_miller_points) => {
-                    todo!()
+                Value::List(miller_points) => {
+                    if miller_points[0].to_type() == ValueType::MillerPair {
+                        let (ps0,qs0): (Vec<blst_p1_affine>, Vec<blst_p2_affine>) =
+                                miller_points.iter().map(|v| {
+                            match *v {
+                                Value::MillerPair(p, q) => {
+                                    let mut p_aff = blst_p1_affine::default();
+                                    unsafe { blst_p1_to_affine(&mut p_aff, &p) };
+                                    let mut q_aff = blst_p2_affine::default();
+                                    unsafe { blst_p2_to_affine(&mut q_aff, &q) };
+                                    Ok((p_aff, q_aff))
+                                }
+                                _ => Err(eval_error.clone())
+                            }
+                        }).collect::<Result<_,_>>()?;
+                        let mut res = blst_fp12::default();
+                        let ps: Vec<*const blst_p1_affine> = ps0.iter().map(|p|p as *const _).collect();
+                        let qs: Vec<*const blst_p2_affine> = qs0.iter().map(|q|q as *const _).collect();
+                        unsafe { blst_miller_loop_n(&mut res, qs.as_ptr(), ps.as_ptr(), qs.len()) };
+                        unsafe { blst_final_exp(&mut res, &res)};
+                        Ok(Value::Coord12(res))
+                    } else {
+                        Err(eval_error)
+                    }
                 },
-                v => Err(EvalError::MillerLoopMustContainListOfMillerPairs { span: inner.miette_span(), expr_type: v.to_type_string() })
+                _ => Err(eval_error)
             }
         }
 
@@ -421,21 +445,20 @@ pub fn eval(expr: &Expr, env: &HashMap<String, Value>) -> Result<Value, EvalErro
         },
 
         Expr::List(es, _) => {
-            let vs_unboxed = &es.into_iter().map(|e| eval(e, env)).collect::<Result<Vec<_>,EvalError>>()?;
+            let vs = &es.into_iter().map(|e| eval(e, env)).collect::<Result<Vec<_>,EvalError>>()?;
             // Check all Values have the same type
-            let val_0 = vs_unboxed[0].to_owned();
-            let opt_val_wrong_index = vs_unboxed.into_iter().position(|v| !v.equal_type(&val_0));
+            let val_0 = vs[0].to_owned();
+            let opt_val_wrong_index = vs.into_iter().position(|v| !v.equal_type(&val_0));
             match opt_val_wrong_index {
               Some(i) =>
                 Err(EvalError::ListElemsMustBeAllOfSameType {
                     first_span: es[0].miette_span(),
                     first_type: val_0.to_type_string(),
                     wrong_span: es[i].miette_span(),
-                    wrong_type: vs_unboxed[i].to_type_string(),
+                    wrong_type: vs[i].to_type_string(),
                 }),
               None => {
-                let vs =  vs_unboxed.clone().into_iter().map(|v|Box::new(v)).collect();
-                Ok(Value::List(vs))
+                Ok(Value::List(vs.to_owned()))
               }
             }
         }
