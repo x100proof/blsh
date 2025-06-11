@@ -424,7 +424,7 @@ fn non_builtin_reserved_words() ->  [String; 2] {
     [ "true", "false"].map(|s|s.to_string())
 }
 
-fn builtins() -> [(String, Value); 10] {
+fn builtins() -> [(String, Value); 11] {
     [ ("p1inf", Value::Point1(blst_p1::default())),
       ("p2inf", Value::Point2(blst_p2::default())),
       ("g1", Value::Point1(unsafe { *blst_p1_generator() })),
@@ -435,6 +435,7 @@ fn builtins() -> [(String, Value); 10] {
       ("order_e2", Value::Scalar(hex_to_scalar("0x2a437a4b8c35fc74bd278eaa22f25e9e2dc90e50e7046b466e59e49349e8bd050a62cfd16ddca6ef53149330978ef0137697386bf984315744a2d5eb3dd4d213f2484c55b94474ab096de2c62640b2643116b1e2788e6a8b2a9fffe1c7238e5"))),
       ("h1", Value::Scalar(hex_to_scalar("0x396c8c005555e1568c00aaab0000aaab"))),
       ("h2", Value::Scalar(hex_to_scalar("0x5d543a95414e7f1091d50792876a202cd91de4547085abaa68a205b2e5a7ddfa628f1cb4d9e82ef21537e293a6691ae1616ec6e786f0c70cf1c38e31c7238e5"))),
+      ("gt_one", Value::Coord12(blst_fp12::default())),
     ].map(|(s,v)| (s.to_string(), v))
 }
 
@@ -445,10 +446,6 @@ pub fn is_reserved_word(name: &str) -> bool {
     let mut combined= builtins.iter().map(|(s,_)| s).chain(non_builtin_reserved_words.iter());
     combined.find(|s| *s == name).is_some()
 }
-
-// pub fn is_builtin(name: &str) -> bool {
-//     builtins().iter().find(|(s, _)| *s == name).is_some()
-// }
 
 fn get_terminal_width(default: usize) -> usize {
     if let Some((Width(w), _)) = terminal_size() {
