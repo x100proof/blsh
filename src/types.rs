@@ -136,7 +136,7 @@ impl<'a> PP<'a> {
     fn with_type(self, v: &Value) -> Self {
         self + concat(
            vec![line(),
-                concat(vec![punct(":",Brightness::Light), line(), type_pp(v.to_type())]).group()
+                concat(vec![punct(":",Brightness::Light), line(), type_pp(v.to_type_string())]).group()
                ]).group()
     }
 
@@ -306,7 +306,7 @@ impl std::fmt::Display for ValueType {
 }
 
 impl Value {
-    pub fn get_type(&self) -> ValueType {
+    pub fn to_type(&self) -> ValueType {
         match self {
             Value::Bool(_) => ValueType::Bool,
             Value::Scalar(_) => ValueType::Scalar,
@@ -317,16 +317,16 @@ impl Value {
             Value::Coord6(_) => ValueType::Coord6,
             Value::Coord12(_) => ValueType::Coord12,
             Value::MillerPair(_,_) => ValueType::MillerPair,
-            Value::List(vs) => ValueType::List(Box::new(vs[0].get_type())),
+            Value::List(vs) => ValueType::List(Box::new(vs[0].to_type())),
         }
     }
     
-    pub fn to_type(&self) -> String {
-        self.get_type().to_string()
+    pub fn to_type_string(&self) -> String {
+        self.to_type().to_string()
     }
 
     pub fn equal_type(&self, other: &Self) -> bool {
-        self.get_type() == other.get_type()
+        self.to_type() == other.to_type()
     }
 
     // Will panic if ever called on a value of different type
