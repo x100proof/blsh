@@ -274,24 +274,59 @@ impl std::fmt::Display for Value {
 }
 
 
-impl Value {
-    pub fn to_type(&self) -> String {
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub enum ValueType {
+    Bool,
+    Scalar,
+    Point1,
+    Point2,
+    Coord1,
+    Coord2,
+    Coord6,
+    Coord12,
+    MillerPair,
+    List(Box<ValueType>),
+}
+
+impl std::fmt::Display for ValueType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Value::Bool(_)                     => "Bool".to_string(),
-            Value::Scalar(_)                   => "Scalar".to_string(),
-            Value::Point1(_)                   => "Point1".to_string(),
-            Value::Point2(_)                   => "Point2".to_string(),
-            Value::Coord1(_)                   => "Coord1".to_string(),
-            Value::Coord2(_)                   => "Coord2".to_string(),
-            Value::Coord6(_)                   => "Coord6".to_string(),
-            Value::Coord12(_)                  => "Coord12".to_string(),
-            Value::MillerPair(_,_)             => "(Point1, Point2)".to_string(),
-            Value::List(vs) => format!("[ {} ]", vs[0].to_type())
+            ValueType::Bool => write!(f, "Bool"),
+            ValueType::Scalar => write!(f, "Scalar"),
+            ValueType::Point1 => write!(f, "Point1"),
+            ValueType::Point2 => write!(f, "Point2"),
+            ValueType::Coord1 => write!(f, "Coord1"),
+            ValueType::Coord2 => write!(f, "Coord2"),
+            ValueType::Coord6 => write!(f, "Coord6"),
+            ValueType::Coord12 => write!(f, "Coord12"),
+            ValueType::MillerPair => write!(f, "(Point1, Point2)"),
+            ValueType::List(inner) => write!(f, "[ {} ]", inner),
         }
+    }
+}
+
+impl Value {
+    pub fn get_type(&self) -> ValueType {
+        match self {
+            Value::Bool(_) => ValueType::Bool,
+            Value::Scalar(_) => ValueType::Scalar,
+            Value::Point1(_) => ValueType::Point1,
+            Value::Point2(_) => ValueType::Point2,
+            Value::Coord1(_) => ValueType::Coord1,
+            Value::Coord2(_) => ValueType::Coord2,
+            Value::Coord6(_) => ValueType::Coord6,
+            Value::Coord12(_) => ValueType::Coord12,
+            Value::MillerPair(_,_) => ValueType::MillerPair,
+            Value::List(vs) => ValueType::List(Box::new(vs[0].get_type())),
+        }
+    }
+    
+    pub fn to_type(&self) -> String {
+        self.get_type().to_string()
     }
 
     pub fn equal_type(&self, other: &Self) -> bool {
-        self.to_type() == other.to_type()
+        self.get_type() == other.get_type()
     }
 
     // Will panic if ever called on a value of different type
