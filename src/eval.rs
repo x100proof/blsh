@@ -34,8 +34,8 @@ pub fn eval(expr: &Expr, env: &HashMap<String, Value>) -> Result<Value, EvalErro
                 (v1,v2) => Err(EvalError::PairCanOnlyContainCoord1Or6 {
                     x_span: expr1.miette_span(),
                     y_span: expr2.miette_span(),
-                    x_coord_type: v1.to_type(),
-                    y_coord_type: v2.to_type(),
+                    x_coord_type: v1.to_type_string(),
+                    y_coord_type: v2.to_type_string(),
                 })
             }
         }
@@ -52,9 +52,9 @@ pub fn eval(expr: &Expr, env: &HashMap<String, Value>) -> Result<Value, EvalErro
                     x_span: expr1.miette_span(),
                     y_span: expr2.miette_span(),
                     z_span: expr3.miette_span(),
-                    x_coord_type: v1.to_type(),
-                    y_coord_type: v2.to_type(),
-                    z_coord_type: v3.to_type(),
+                    x_coord_type: v1.to_type_string(),
+                    y_coord_type: v2.to_type_string(),
+                    z_coord_type: v3.to_type_string(),
                 })
             }
         }
@@ -88,8 +88,8 @@ pub fn eval(expr: &Expr, env: &HashMap<String, Value>) -> Result<Value, EvalErro
                         (Value::Coord2(_), _) | (_, Value::Coord2(_)) => "Coord2",
                         _ => "Coord",
                     }.to_string(),
-                    x_coord_type: v1.to_type(),
-                    y_coord_type: v2.to_type(),
+                    x_coord_type: v1.to_type_string(),
+                    y_coord_type: v2.to_type_string(),
                 })
             }
         }
@@ -150,8 +150,8 @@ pub fn eval(expr: &Expr, env: &HashMap<String, Value>) -> Result<Value, EvalErro
                 (v1,v2) => Err(EvalError::EmbedHasIncorrectTypes {
                          span1: expr1.miette_span(),
                          span2: expr2.miette_span(),
-                         type1: v1.to_type(),
-                         type2: v2.to_type(),
+                         type1: v1.to_type_string(),
+                         type2: v2.to_type_string(),
                 })
             }
         }
@@ -164,7 +164,7 @@ pub fn eval(expr: &Expr, env: &HashMap<String, Value>) -> Result<Value, EvalErro
                     unsafe { blst_fp12_inverse(&mut result, &fp12); }
                     Ok(Value::Coord12(result))
                 },
-                v => Err(EvalError::InvExpectsCoord12 { span: inner.miette_span(), expr_type: v.to_type() })
+                v => Err(EvalError::InvExpectsCoord12 { span: inner.miette_span(), expr_type: v.to_type_string() })
             }
         }
 
@@ -176,7 +176,7 @@ pub fn eval(expr: &Expr, env: &HashMap<String, Value>) -> Result<Value, EvalErro
                     unsafe { blst_fp12_sqr(&mut result, &fp12); }
                     Ok(Value::Coord12(result))
                 },
-                v => Err(EvalError::SqrExpectsCoord12 { span: inner.miette_span(), expr_type: v.to_type() })
+                v => Err(EvalError::SqrExpectsCoord12 { span: inner.miette_span(), expr_type: v.to_type_string() })
             }
         }
 
@@ -191,7 +191,7 @@ pub fn eval(expr: &Expr, env: &HashMap<String, Value>) -> Result<Value, EvalErro
                     } else {
                         Err(EvalError::NotASquare {
                             span: inner.miette_span(),
-                            expr_type: v.to_type(),
+                            expr_type: v.to_type_string(),
                         })
                     }
                 }
@@ -203,11 +203,11 @@ pub fn eval(expr: &Expr, env: &HashMap<String, Value>) -> Result<Value, EvalErro
                     } else {
                         Err(EvalError::NotASquare {
                             span: inner.miette_span(),
-                            expr_type: v.to_type(),
+                            expr_type: v.to_type_string(),
                         })
                     }
                 }
-                v => Err(EvalError::SqrtExpectsCoords { span: inner.miette_span(), expr_type: v.to_type()}),
+                v => Err(EvalError::SqrtExpectsCoords { span: inner.miette_span(), expr_type: v.to_type_string()}),
             }
         }
         Expr::MillerLoop(inner, _) => {
@@ -216,7 +216,7 @@ pub fn eval(expr: &Expr, env: &HashMap<String, Value>) -> Result<Value, EvalErro
                 Value::List(_miller_points) => {
                     todo!()
                 },
-                v => Err(EvalError::MillerLoopMustContainListOfMillerPairs { span: inner.miette_span(), expr_type: v.to_type() })
+                v => Err(EvalError::MillerLoopMustContainListOfMillerPairs { span: inner.miette_span(), expr_type: v.to_type_string() })
             }
         }
 
@@ -235,8 +235,8 @@ pub fn eval(expr: &Expr, env: &HashMap<String, Value>) -> Result<Value, EvalErro
                 (l, r) => Err(EvalError::TypeMismatchMapToG1 {
                     span1: x_expr.miette_span(),
                     span2: y_expr.miette_span(),
-                    type1: l.to_type(),
-                    type2: r.to_type(),
+                    type1: l.to_type_string(),
+                    type2: r.to_type_string(),
                 }),
             }
         },
@@ -253,8 +253,8 @@ pub fn eval(expr: &Expr, env: &HashMap<String, Value>) -> Result<Value, EvalErro
                 (l,r) => Err(EvalError::TypeMismatchMapToG2 {
                     span1: x_expr.miette_span(),
                     span2: y_expr.miette_span(),
-                    type1: l.to_type(),
-                    type2: r.to_type(),
+                    type1: l.to_type_string(),
+                    type2: r.to_type_string(),
                 }),
             }
         },
@@ -268,8 +268,8 @@ pub fn eval(expr: &Expr, env: &HashMap<String, Value>) -> Result<Value, EvalErro
                 Err(EvalError::EqualityOnSameTypesOnly {
                     lhs_span: lhs.miette_span(),
                     rhs_span: rhs.miette_span(),
-                    lhs_type: l.to_type(),
-                    rhs_type: r.to_type()
+                    lhs_type: l.to_type_string(),
+                    rhs_type: r.to_type_string()
                 })
             }
         }
@@ -311,8 +311,8 @@ pub fn eval(expr: &Expr, env: &HashMap<String, Value>) -> Result<Value, EvalErro
                 (l,r) => Err(EvalError::TypeMismatchMul {
                     lhs_span: lhs.miette_span(),
                     rhs_span: rhs.miette_span(),
-                    lhs_type: l.to_type(),
-                    rhs_type: r.to_type(),
+                    lhs_type: l.to_type_string(),
+                    rhs_type: r.to_type_string(),
                 }),
             }
         }
@@ -348,8 +348,8 @@ pub fn eval(expr: &Expr, env: &HashMap<String, Value>) -> Result<Value, EvalErro
                 (l,r) => Err(EvalError::TypeMismatchPointAdd {
                         lhs_span: lhs.miette_span(),
                         rhs_span: rhs.miette_span(),
-                        lhs_type: l.to_type(),
-                        rhs_type: r.to_type(),
+                        lhs_type: l.to_type_string(),
+                        rhs_type: r.to_type_string(),
                     })
             }
         }
@@ -382,8 +382,8 @@ pub fn eval(expr: &Expr, env: &HashMap<String, Value>) -> Result<Value, EvalErro
                 (l,r) => Err(EvalError::TypeMismatchPointSub {
                     lhs_span: lhs.miette_span(),
                     rhs_span: rhs.miette_span(),
-                    lhs_type: l.to_type(),
-                    rhs_type: r.to_type(),
+                    lhs_type: l.to_type_string(),
+                    rhs_type: r.to_type_string(),
                 }),
             }
         }
@@ -410,7 +410,7 @@ pub fn eval(expr: &Expr, env: &HashMap<String, Value>) -> Result<Value, EvalErro
                 }
                 _ => Err(EvalError::TypeMismatchNeg {
                     span: inner.miette_span(),
-                    expr_type: v.to_type(),
+                    expr_type: v.to_type_string(),
                 }),
             }
         }
@@ -429,9 +429,9 @@ pub fn eval(expr: &Expr, env: &HashMap<String, Value>) -> Result<Value, EvalErro
               Some(i) =>
                 Err(EvalError::ListElemsMustBeAllOfSameType {
                     first_span: es[0].miette_span(),
-                    first_type: val_0.to_type(),
+                    first_type: val_0.to_type_string(),
                     wrong_span: es[i].miette_span(),
-                    wrong_type: vs_unboxed[i].to_type(),
+                    wrong_type: vs_unboxed[i].to_type_string(),
                 }),
               None => {
                 let vs =  vs_unboxed.clone().into_iter().map(|v|Box::new(v)).collect();
