@@ -21,9 +21,9 @@ pub enum Value {
 }
 
 enum Brackets {
-    Brace,
-    Curly,
-    Square
+    Angle, // < >
+    Brace, // ( )
+    Curly, // { }
 }
 
 #[derive(Clone,Copy, Debug)]
@@ -98,6 +98,10 @@ fn concat<'a, I>(docs: I) -> PP<'a>
         PP(RcDoc::concat(docs.into_iter().map(|x| x.0)))
     }
 
+const POINT_BRACKETS: Brackets = Brackets::Angle;
+const COORD_BRACKETS_OUTER: Brackets = Brackets::Brace;
+const COORD_BRACKETS_INNER: Brackets = Brackets::Curly;
+
 #[allow(dead_code)]
 impl<'a> PP<'a> {
     fn group(self) -> Self {
@@ -129,9 +133,9 @@ impl<'a> PP<'a> {
 
     fn wrap_brackets(self, brackets: Brackets, b: Brightness) -> Self {
         match brackets {
+            Brackets::Angle  => concat(vec![punct("<", b) + space(), self, space() + punct(">", b)]),
             Brackets::Brace  => concat(vec![punct("(", b) + space(), self, space() + punct(")", b)]),
             Brackets::Curly  => concat(vec![punct("{", b) + space(), self, space() + punct("}", b)]),
-            Brackets::Square => concat(vec![punct("[", b) + space(), self, space() + punct("]", b)]),
         }
     }
 }
@@ -157,7 +161,7 @@ fn pretty_point1<'a>(p: &blst_p1) -> PP<'a> {
     unsafe { blst_p1_to_affine(&mut aff, p) };
     pretty_pair(pretty_coord1(&aff.x).nest(2),
                 pretty_coord1(&aff.y).nest(2),
-                Brackets::Brace,
+                POINT_BRACKETS,
                 Brightness::Light)
 }
 
@@ -167,7 +171,7 @@ fn pretty_point2<'a>(p: &blst_p2) -> PP<'a> {
     unsafe { blst_p2_to_affine(&mut aff, p) };
     let a_doc = pretty_coord2_rec(&aff.x, b.darken()).nest(2);
     let b_doc = pretty_coord2_rec(&aff.y, b.darken()).nest(2);
-    pretty_pair(a_doc, b_doc, Brackets::Brace, b)
+    pretty_pair(a_doc, b_doc, POINT_BRACKETS, b)
 }
 
 fn pretty_coord1<'a>(fp: &blst_fp) -> PP<'a> {
@@ -175,7 +179,7 @@ fn pretty_coord1<'a>(fp: &blst_fp) -> PP<'a> {
 }
 
 fn pretty_coord2_rec<'a>(fp2: &blst_fp2, b: Brightness) -> PP<'a> {
-    pretty_pair(pretty_coord1(&fp2.fp[0]), pretty_coord1(&fp2.fp[1]), Brackets::Square, b)
+    pretty_pair(pretty_coord1(&fp2.fp[0]), pretty_coord1(&fp2.fp[1]), COORD_BRACKETS_OUTER, b)
 }
 
 fn pretty_coord2<'a>(fp2: &blst_fp2) -> PP<'a> {
@@ -187,7 +191,7 @@ fn pretty_coord6_rec<'a>(fp6: &blst_fp6, b: Brightness) -> PP<'a> {
         pretty_coord2_rec(&fp6.fp2[0], b.darken()).nest(2),
         pretty_coord2_rec(&fp6.fp2[1], b.darken()).nest(2),
         pretty_coord2_rec(&fp6.fp2[2], b.darken()).nest(2),
-        Brackets::Curly,
+        COORD_BRACKETS_INNER,
         b
     )
 }
@@ -201,7 +205,7 @@ fn pretty_coord12<'a>(fp12: &blst_fp12) -> PP<'a> {
     let b = Brightness::Light;
     pretty_pair(pretty_coord6_rec(&fp12.fp6[0], b.darken()).nest(2),
                 pretty_coord6_rec(&fp12.fp6[1], b.darken()).nest(2),
-                Brackets::Square, b)
+                COORD_BRACKETS_OUTER, b)
 }
 
 fn pretty_bool<'a>(b: &bool) -> PP<'a> {

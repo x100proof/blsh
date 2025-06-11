@@ -42,7 +42,7 @@ primary     =  {
 }
 
 // We disambiguate between Point1 and Point2 in the parser
-point               = { "(" ~ expr ~ "," ~ expr ~ ")" }
+point               = { "<" ~ expr ~ "," ~ expr ~ ">" }
 
 // all coord_<x> variants could be Coord1, Coord2, Coord6, or Coord12. We disambiguate in the parser
 coord_pair          = { cbo ~ expr ~ "," ~ expr ~ cbc }
@@ -52,8 +52,8 @@ coord_flat6         = { cbo ~ expr ~ "," ~ expr ~ "," ~ expr ~ "," ~ expr ~ "," 
 coord_flat12        = { cbo ~ expr ~ "," ~ expr ~ "," ~ expr ~ "," ~ expr ~ "," ~ expr ~ "," ~ expr ~ "," ~ expr ~ "," ~ expr ~ "," ~ expr ~ "," ~ expr ~ "," ~ expr ~ "," ~ expr ~ cbc }
 
 // coord brace open & close
-cbo                  = _{ "[" | "{" }
-cbc                  = _{ "]" | "}" }
+cbo                  = _{ "(" | "{" }
+cbc                  = _{ ")" | "}" }
 
 
 // We unconstrain hex digit length and handle error in parser for better error messages
