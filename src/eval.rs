@@ -210,6 +210,15 @@ pub fn eval(expr: &Expr, env: &HashMap<String, Value>) -> Result<Value, EvalErro
                 v => Err(EvalError::SqrtExpectsCoords { span: inner.miette_span(), expr_type: v.to_type()}),
             }
         }
+        Expr::MillerLoop(inner, _) => {
+            let v = eval(inner, env)?;
+            match v {
+                Value::List(_miller_points) => {
+                    todo!()
+                },
+                v => Err(EvalError::MillerLoopMustContainListOfMillerPairs { span: inner.miette_span(), expr_type: v.to_type() })
+            }
+        }
 
         // 100proof: I had considered just calling the primitive `map` but then you lose
         // the idea that it's a prime order subgroup. `map_to_g` didn't really work for me either

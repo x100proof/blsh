@@ -351,6 +351,14 @@ fn parse_primary(pair: Pair<Rule>) -> Result<Expr, ParseError> {
             Ok(Expr::Sqrt(Box::new(arg), span_info))
         }
 
+        Rule::miller_loop => {
+            let inner = pair.into_inner().next().unwrap();
+            let arg = parse_expr(inner)?;
+            let span_info = SpanInfo::from_span(span);
+            Ok(Expr::MillerLoop(Box::new(arg), span_info))
+        }
+
+
         // 100proof: I'm doubling up on logic here but the naming aligns with `blst` so
         // users will known what is going on
         Rule::map_to_g1 => {

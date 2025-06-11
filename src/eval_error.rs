@@ -198,6 +198,13 @@ pub enum EvalError {
         wrong_span: ErrorSpan,
         first_type: String,
         wrong_type: String,
+    },
+
+    #[error("miller_loop must contain a list of (Point1, Point2) pairs")]
+    MillerLoopMustContainListOfMillerPairs {
+        #[label("{expr_type}")]
+        span: ErrorSpan,
+        expr_type: String,
     }
 
 }
