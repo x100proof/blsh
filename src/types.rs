@@ -18,12 +18,15 @@ pub enum Value {
     Coord2(blst_fp2),
     Coord6(blst_fp6),
     Coord12(blst_fp12),
+    MillerPair(blst_p1, blst_p2),
+    List(Vec<Box<Value>>),
 }
 
 enum Brackets {
-    Angle, // < >
-    Brace, // ( )
-    Curly, // { }
+    Angle,  // < >
+    Brace,  // ( )
+    Curly,  // { }
+    Square, // [ ]
 }
 
 #[derive(Clone,Copy, Debug)]
@@ -63,8 +66,8 @@ fn styled<'a>(s: &str, style: Style) -> PP<'a> {
     }
 }
 
-fn type_pp<'a>(s: &str) -> PP<'a> {
-    styled(s, Blue.bold())
+fn type_pp<'a>(s: String) -> PP<'a> {
+    styled(&s, Blue.bold())
 }
 
 fn coord_pp<'a>(s: &str) -> PP<'a> {
@@ -98,6 +101,12 @@ fn concat<'a, I>(docs: I) -> PP<'a>
         PP(RcDoc::concat(docs.into_iter().map(|x| x.0)))
     }
 
+fn intersperse<'a, I>(docs: I, sep: PP<'a>) -> PP<'a>
+  where I: IntoIterator<Item = PP<'a>>,
+  {
+    PP(RcDoc::intersperse(docs.into_iter().map(|x|x.0), sep.0))
+  }
+
 const POINT_BRACKETS: Brackets = Brackets::Angle;
 const COORD_BRACKETS_OUTER: Brackets = Brackets::Brace;
 const COORD_BRACKETS_INNER: Brackets = Brackets::Curly;
@@ -124,10 +133,10 @@ impl<'a> PP<'a> {
         PP(self.0.indent(adjust))
     }
 
-    fn with_type(self, type_str: &'a str) -> Self {
+    fn with_type(self, v: &Value) -> Self {
         self + concat(
            vec![line(),
-                concat(vec![punct(":",Brightness::Light), line(), type_pp(type_str)]).group()
+                concat(vec![punct(":",Brightness::Light), line(), type_pp(v.to_type())]).group()
                ]).group()
     }
 
@@ -136,6 +145,7 @@ impl<'a> PP<'a> {
             Brackets::Angle  => concat(vec![punct("<", b) + space(), self, space() + punct(">", b)]),
             Brackets::Brace  => concat(vec![punct("(", b) + space(), self, space() + punct(")", b)]),
             Brackets::Curly  => concat(vec![punct("{", b) + space(), self, space() + punct("}", b)]),
+            Brackets::Square  => concat(vec![punct("[", b) + space(), self, space() + punct("]", b)]),
         }
     }
 }
@@ -208,21 +218,37 @@ fn pretty_coord12<'a>(fp12: &blst_fp12) -> PP<'a> {
                 COORD_BRACKETS_OUTER, b)
 }
 
+fn pretty_miller_pair<'a>(p1: &blst_p1, p2: &blst_p2) -> PP<'a> {
+    pretty_pair(pretty_point1(p1).nest(2), pretty_point2(p2).nest(2), COORD_BRACKETS_OUTER, Brightness::Medium)
+}
+
+fn pretty_array<'a>(vs: &Vec<Box<Value>>) -> PP<'a> {
+    intersperse(vs.into_iter().map(|v| pretty_value_without_type(&v)).collect::<Vec<_>>(),
+                punct(",", Brightness::Light) + line_()).wrap_brackets(Brackets::Square, Brightness::Light)
+
+}
+
 fn pretty_bool<'a>(b: &bool) -> PP<'a> {
     styled(if *b { "true" } else { "false" } , Fixed(208).normal())
 }
 
-fn pretty_value<'a>(v: &Value) -> PP<'a> {
+fn pretty_value_without_type<'a>(v: &Value) -> PP<'a> {
     match v {
-        Value::Point1(p) => pretty_point1(p).with_type("Point1"),
-        Value::Point2(p) => pretty_point2(p).with_type("Point2"),
-        Value::Scalar(s) => pretty_scalar(s.clone()).with_type("Scalar"),
-        Value::Coord1(fp) => pretty_coord1(fp).with_type("Coord1"),
-        Value::Coord2(fp2) => pretty_coord2(fp2).with_type("Coord2"),
-        Value::Coord6(fp6) => pretty_coord6(fp6).with_type("Coord6"),
-        Value::Coord12(fp12) => pretty_coord12(fp12).with_type("Coord12"),
-        Value::Bool(b) => pretty_bool(b).with_type("Bool"),
+        Value::Scalar(s) => pretty_scalar(s.clone()),
+        Value::Bool(b) => pretty_bool(b),
+        Value::Point1(p) => pretty_point1(p),
+        Value::Point2(p) => pretty_point2(p),
+        Value::Coord1(fp) => pretty_coord1(fp),
+        Value::Coord2(fp2) => pretty_coord2(fp2),
+        Value::Coord6(fp6) => pretty_coord6(fp6),
+        Value::Coord12(fp12) => pretty_coord12(fp12),
+        Value::MillerPair(p1, p2) => pretty_miller_pair(p1,p2),
+        Value::List(vs) => pretty_array(vs),
     }
+}
+
+fn pretty_value<'a>(v: &Value) -> PP<'a> {
+    pretty_value_without_type(v).with_type(v)
 }
 
 fn pretty_let<'a>(name: &str, value: &Value) -> PP<'a> {
@@ -251,15 +277,17 @@ impl std::fmt::Display for Value {
 impl Value {
     pub fn to_type(&self) -> String {
         match self {
-            Value::Scalar(_)  => "Scalar",
-            Value::Point1(_)  => "Point1",
-            Value::Point2(_)  => "Point2",
-            Value::Coord1(_)  => "Coord1",
-            Value::Coord2(_)  => "Coord2",
-            Value::Coord6(_)  => "Coord6",
-            Value::Coord12(_) => "Coord12",
-            Value::Bool(_)    => "Bool",
-        }.to_string()
+            Value::Bool(_)                     => "Bool".to_string(),
+            Value::Scalar(_)                   => "Scalar".to_string(),
+            Value::Point1(_)                   => "Point1".to_string(),
+            Value::Point2(_)                   => "Point2".to_string(),
+            Value::Coord1(_)                   => "Coord1".to_string(),
+            Value::Coord2(_)                   => "Coord2".to_string(),
+            Value::Coord6(_)                   => "Coord6".to_string(),
+            Value::Coord12(_)                  => "Coord12".to_string(),
+            Value::MillerPair(_,_)             => "(Point1, Point2)".to_string(),
+            Value::List(vs) => format!("[ {} ]", vs[0].to_type())
+        }
     }
 
     pub fn equal_type(&self, other: &Self) -> bool {

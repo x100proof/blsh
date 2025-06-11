@@ -28,6 +28,9 @@ pub fn eval(expr: &Expr, env: &HashMap<String, Value>) -> Result<Value, EvalErro
                 (Value::Coord6(x), Value::Coord6(y)) => {
                     Ok(Value::Coord12(blst_fp12 { fp6: [x, y] }))
                 }
+                (Value::Point1(p1), Value::Point2(p2)) => {
+                    Ok(Value::MillerPair(p1, p2))
+                }
                 (v1,v2) => Err(EvalError::PairCanOnlyContainCoord1Or6 {
                     x_span: expr1.miette_span(),
                     y_span: expr2.miette_span(),
@@ -406,6 +409,26 @@ pub fn eval(expr: &Expr, env: &HashMap<String, Value>) -> Result<Value, EvalErro
             env.get(name).cloned().ok_or(EvalError::UnknownIdent {
                 span: expr.miette_span(),
             })
+        },
+
+        Expr::List(es, _) => {
+            let vs_unboxed = &es.into_iter().map(|e| eval(e, env)).collect::<Result<Vec<_>,EvalError>>()?;
+            // Check all Values have the same type
+            let val_0 = vs_unboxed[0].to_owned();
+            let opt_val_wrong_index = vs_unboxed.into_iter().position(|v| !v.equal_type(&val_0));
+            match opt_val_wrong_index {
+              Some(i) =>
+                Err(EvalError::ListElemsMustBeAllOfSameType {
+                    first_span: es[0].miette_span(),
+                    first_type: val_0.to_type(),
+                    wrong_span: es[i].miette_span(),
+                    wrong_type: vs_unboxed[i].to_type(),
+                }),
+              None => {
+                let vs =  vs_unboxed.clone().into_iter().map(|v|Box::new(v)).collect();
+                Ok(Value::List(vs))
+              }
+            }
         }
     }
 }

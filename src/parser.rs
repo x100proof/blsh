@@ -383,10 +383,27 @@ fn parse_primary(pair: Pair<Rule>) -> Result<Expr, ParseError> {
             Ok(Expr::Var(name, span_info))
         },
         // Rule::expr => parse_expr(pair), // seems to be handled up in parse_expr for some reason
+
+        Rule::list_expr => parse_list_expr(pair),
+
         _ => Err(ParseError::UnexpectedToken {
             span: span_to_error_span(span),
         }),
+
     }
+}
+
+fn parse_list_expr(pair: Pair<Rule>) -> Result<Expr, ParseError> {
+    let mut inner = pair.into_inner();
+    let first = &parse_expr(inner.next().unwrap())?;
+    let mut span_info = first.span_info().to_owned();
+    let mut elems = vec![Box::new(first.clone())];
+    while let Some(next_pair) = inner.next() {
+        let next = &parse_expr(next_pair)?;
+        elems.push(Box::new(next.clone()));
+        span_info = span_info.merge(next.span_info());
+    }
+    Ok(Expr::List(elems, span_info.to_owned()))
 }
 
 fn parse_ident(pair: Pair<Rule>) -> Result<String, ParseError> {

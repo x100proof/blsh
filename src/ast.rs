@@ -78,6 +78,7 @@ pub enum Expr {
     Sub(Box<Expr>, Box<Expr>, SpanInfo), // Point[1/2] - Point[1/2]
     Neg(Box<Expr>, SpanInfo),            // -Point[1/2]
     Var(String, SpanInfo),
+    List(Vec<Box<Expr>>, SpanInfo),
 }
 
 impl Expr {
@@ -105,6 +106,7 @@ impl Expr {
             Expr::Sub(_, _, s) => s,
             Expr::Neg(_, s) => s,
             Expr::Var(_, s) => s,
+            Expr::List(_, s) => s,
         }
     }
 
@@ -141,6 +143,7 @@ impl fmt::Debug for Expr {
             Expr::Sub(e1, e2, span_info) => f.debug_tuple("Sub").field(e1).field(e2).field(span_info).finish(),
             Expr::Neg(e, span_info) => f.debug_tuple("Neg").field(e).field(span_info).finish(),
             Expr::Var(name, span_info) => f.debug_tuple("Var").field(name).field(span_info).finish(),
+            Expr::List(vs, span_info) => f.debug_tuple("Array").field(vs).field(span_info).finish(),
         }
     }
 }

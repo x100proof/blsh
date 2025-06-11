@@ -190,4 +190,14 @@ pub enum EvalError {
         rhs_type: String,
     },
 
+    #[error("Lists must contain elements that are all of the same type")]
+    ListElemsMustBeAllOfSameType {
+        #[label("{first_type}")]
+        first_span: ErrorSpan,
+        #[label("{wrong_type}")]
+        wrong_span: ErrorSpan,
+        first_type: String,
+        wrong_type: String,
+    }
+
 }

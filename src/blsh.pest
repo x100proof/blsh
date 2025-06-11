@@ -37,8 +37,10 @@ primary     =  {
     | coord_triple
     | coord_flat6
     | coord_flat12
+    | list_expr
     | ident
     | "(" ~ expr ~ ")"
+
 }
 
 // We disambiguate between Point1 and Point2 in the parser
@@ -86,3 +88,5 @@ embed = { "embed" ~ "(" ~ expr ~ "," ~ expr ~ ")" }
 ident       =  @{ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")* }
 
 bool        = @{ "true" | "false" }
+
+list_expr = { "[" ~ expr ~ ( "," ~ expr )* ~ "]" }
