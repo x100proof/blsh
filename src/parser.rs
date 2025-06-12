@@ -367,6 +367,13 @@ fn parse_primary(pair: Pair<Rule>) -> Result<Expr, ParseError> {
             Ok(Expr::Sqrt(Box::new(arg), span_info))
         }
 
+        Rule::conj => {
+            let inner = pair.into_inner().next().unwrap();
+            let arg = parse_expr(inner)?;
+            let span_info = SpanInfo::from_span(span);
+            Ok(Expr::Conjugate(Box::new(arg), span_info))
+        }
+
         Rule::pow => {
             let mut inner = pair.into_inner();
             let e1 = parse_expr(inner.next().unwrap())?;

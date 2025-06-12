@@ -26,6 +26,7 @@ primary     =  {
     | bool
     | sqrt // must come before sqr otherwise "sqr" gets consumed first
     | sqr
+    | conj
     | pow
     | miller_loop
     | inv
@@ -51,6 +52,7 @@ primary     =  {
 
 // We disambiguate between Point1 and Point2 in the parser
 point               = { "<" ~ expr ~ "," ~ expr ~ ">" }
+
 
 // all coord_<x> variants could be Coord1, Coord2, Coord6, or Coord12. We disambiguate in the parser
 coord_pair          = { cbo ~ expr ~ "," ~ expr ~ cbc }
@@ -85,6 +87,7 @@ hex   = @{ "0x" ~ ASCII_HEX_DIGIT+ }
 
 sqrt  = { "sqrt" ~ "(" ~ expr ~ ")" }
 sqr   = { "sqr"  ~ "(" ~ expr ~ ")" } // just for Coord12
+conj = { "conj" ~ "(" ~ expr ~ ")" }
 pow   = { "pow"  ~ "(" ~ expr ~ "," ~ expr ~ ")" }
 inv   = { "inv"  ~ "(" ~ expr ~ ")" } // just for Coord12
 miller_loop = { "miller_loop" ~ "(" ~ expr ~ ")"}

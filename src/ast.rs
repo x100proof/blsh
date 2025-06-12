@@ -78,6 +78,7 @@ pub enum Expr {
     Inv(Box<Expr>, SpanInfo), // Coord12
     Sqr(Box<Expr>, SpanInfo), // Coord12
     Sqrt(Box<Expr>, SpanInfo),
+    Conjugate(Box<Expr>, SpanInfo),
     Pow(Box<Expr>, Box<Expr>, SpanInfo),
     MillerLoop(Box<Expr>, SpanInfo),
     MapToG1(Box<Expr>,Box<Expr>, SpanInfo),
@@ -109,6 +110,7 @@ impl Expr {
             Expr::Inv(_, s) => s,
             Expr::Sqr(_, s) => s,
             Expr::Sqrt(_, s) => s,
+            Expr::Conjugate(_, s) => s,
             Expr::Pow(_, _, s) => s,
             Expr::MillerLoop(_, s) => s,
             Expr::MapToG1(_, _, s) => s,
@@ -149,6 +151,7 @@ impl fmt::Debug for Expr {
             Expr::Inv(e, span_info) => f.debug_tuple("Inv").field(e).field(span_info).finish(),
             Expr::Sqr(e, span_info) => f.debug_tuple("Sqr").field(e).field(span_info).finish(),
             Expr::Sqrt(e, span_info) => f.debug_tuple("Sqrt").field(e).field(span_info).finish(),
+            Expr::Conjugate(e, span_info) => f.debug_tuple("Conjugate").field(e).field(span_info).finish(),
             Expr::Pow(e1, e2, span_info) => f.debug_tuple("Pow").field(e1).field(e2).field(span_info).finish(),
             Expr::MillerLoop(e, span_info) => f.debug_tuple("MillerLoop").field(e).field(span_info).finish(),
             Expr::MapToG1(e1, e2, span_info) => f.debug_tuple("MapToG1").field(e1).field(e2).field(span_info).finish(),

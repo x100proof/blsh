@@ -100,19 +100,27 @@ pub fn eval(expr: &Expr, env: &HashMap<String, Value>) -> Result<Value, EvalErro
                     EvalError::ZComponentSelectorOnlyOnCoord6 {
                         component_span: s.miette_span(), expr_span: e.miette_span(), expr_type: v.to_type_string() }.to_owned();
             match v {
-                Value::Point1(p1) =>
+                Value::Point1(p1) => {
+                    // Must be affine!
+                    let mut p1a = blst_p1_affine::default();
+                    unsafe { blst_p1_to_affine(&mut p1a, &p1) };
                     match kind {
-                        PointComponentKind::X => Ok(Value::Coord1(p1.x)),
-                        PointComponentKind::Y => Ok(Value::Coord1(p1.y)),
+                        PointComponentKind::X => Ok(Value::Coord1(p1a.x)),
+                        PointComponentKind::Y => Ok(Value::Coord1(p1a.y)),
                         PointComponentKind::Z => Err(z_component_error),
-
-                    },
-                Value::Point2(p2) =>
+                    }
+                }
+                Value::Point2(p2) => {
+                    // Must be affine!
+                    let mut p2a = blst_p2_affine::default();
+                    unsafe { blst_p2_to_affine(&mut p2a, &p2) };
                     match kind {
-                        PointComponentKind::X => Ok(Value::Coord2(p2.x)),
-                        PointComponentKind::Y => Ok(Value::Coord2(p2.y)),
+                        // Must be affine!
+                        PointComponentKind::X => Ok(Value::Coord2(p2a.x)),
+                        PointComponentKind::Y => Ok(Value::Coord2(p2a.y)),
                         PointComponentKind::Z => Err(z_component_error),
-                    },
+                    }
+                },
                 Value::Coord2(c2) =>
                     match kind {
                         PointComponentKind::X => Ok(Value::Coord1(c2.fp[0])),
@@ -268,6 +276,24 @@ pub fn eval(expr: &Expr, env: &HashMap<String, Value>) -> Result<Value, EvalErro
                 v => Err(EvalError::SqrtExpectsCoords { span: inner.miette_span(), expr_type: v.to_type_string()}),
             }
         }
+
+        Expr::Conjugate(inner, _) => {
+            let v = eval(inner, env)?;
+            match v {
+                Value::Point2(p2) => {
+                    let mut p2a = blst_p2_affine::default();
+                    unsafe { blst_p2_to_affine(&mut p2a, &p2)};
+                    unsafe { blst_fp_cneg(&mut p2a.x.fp[1], &p2a.x.fp[1], true)};
+                    unsafe { blst_fp_cneg(&mut p2a.y.fp[1], &p2a.y.fp[1], true)};
+                    let mut res = blst_p2::default();
+                    unsafe {blst_p2_from_affine(&mut res, &p2a);}
+                    Ok(Value::Point2(res))
+                },
+                v => Err(EvalError::ConjugateOnlyOnPoint2 { span: inner.miette_span(), expr_type: v.to_type_string() })
+            }
+        }
+
+
         Expr::Pow(e1, e2, _) => {
             let v1 = eval(e1, env)?;
             let v2 = eval(e2, env)?;

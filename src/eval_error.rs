@@ -222,6 +222,12 @@ pub enum EvalError {
         #[label("{expr_type}")]
         expr_span: ErrorSpan,
         expr_type: String,
+    },
+    #[error("conj can only be used on Point2")]
+    ConjugateOnlyOnPoint2 {
+        #[label("{expr_type}")]
+        span: ErrorSpan,
+        expr_type: String,
     }
 
 
