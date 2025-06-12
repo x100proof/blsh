@@ -392,6 +392,13 @@ pub fn eval(expr: &Expr, env: &HashMap<String, Value>) -> Result<Value, EvalErro
                     unsafe { blst_fp_mul(&mut result, &a, &b)}
                     Ok(Value::Coord1(result))
                 },
+                // This is a bit like scalar multiplication. It makes complete sense.
+                (Value::Coord1(s), Value::Coord2(p2)) | (Value::Coord2(p2), Value::Coord1(s)) => {
+                    let mut res = blst_fp2::default();
+                    unsafe { blst_fp_mul(&mut res.fp[0], &s, &p2.fp[0])};
+                    unsafe { blst_fp_mul(&mut res.fp[1], &s, &p2.fp[1])};
+                    Ok(Value::Coord2(res))
+                },
                 (Value::Coord2(a), Value::Coord2(b)) => {
                     let mut result = blst_fp2::default();
                     unsafe { blst_fp2_mul(&mut result, &a, &b)}
