@@ -47,6 +47,13 @@ impl fmt::Debug for SpanInfo {
     }
 }
 
+#[derive(Clone, Debug)]
+pub enum PointComponentKind {
+    X,
+    Y,
+    Z
+}
+
 /*
  *   The extra `SpanInfo` field might be a bit ugly but if we try to create e.g. a `FullExpr`
  *   data structure that contains `Expr` and `SpanInfo` has fields we get "recursive type hell"
@@ -62,6 +69,7 @@ pub enum Expr {
     CoordPair(Box<Expr>, Box<Expr>, SpanInfo),
     CoordTriple(Box<Expr>, Box<Expr>, Box<Expr>, SpanInfo),
     Point(Box<Expr>, Box<Expr>, SpanInfo),
+    PointComponent(Box<Expr>, (PointComponentKind, SpanInfo), SpanInfo),
     Point1Compressed([u8; 48], SpanInfo),
     Point1Uncompressed([u8;96], SpanInfo),
     Point2Compressed([u8; 96], SpanInfo),
@@ -92,6 +100,7 @@ impl Expr {
             Expr::CoordPair(_, _, s) => s,
             Expr::CoordTriple(_, _, _, s) => s,
             Expr::Point(_, _, s) => s,
+            Expr::PointComponent(_, _, s) => s,
             Expr::Point1Compressed(_, s) => s,
             Expr::Point1Uncompressed(_, s) => s,
             Expr::Point2Compressed(_, s) => s,
@@ -131,6 +140,7 @@ impl fmt::Debug for Expr {
             Expr::CoordPair(e1, e2, span_info) => f.debug_tuple("CoordPair").field(e1).field(e2).field(span_info).finish(),
             Expr::CoordTriple(e1, e2, e3, span_info) => f.debug_tuple("CoordTriple").field(e1).field(e2).field(e3).field(span_info).finish(),
             Expr::Point(e1, e2, span_info) => f.debug_tuple("Point").field(e1).field(e2).field(span_info).finish(),
+            Expr::PointComponent(e, kind, span_info) => f.debug_tuple("PointComponent").field(e).field(kind).field(span_info).finish(),
             Expr::Point1Compressed(bytes, span_info) => f.debug_tuple("Point1Compressed").field(bytes).field(span_info).finish(),
             Expr::Point1Uncompressed(bytes, span_info) => f.debug_tuple("Point1Uncompressed").field(bytes).field(span_info).finish(),
             Expr::Point2Compressed(bytes, span_info) => f.debug_tuple("Point2Compressed").field(bytes).field(span_info).finish(),

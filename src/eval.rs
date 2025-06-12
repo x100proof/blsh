@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use crate::ast::{Expr};
+use crate::ast::{Expr, PointComponentKind};
 use crate::eval_error::{EvalError};
 use crate::types::{Value, ValueType};
 use blst::*;
@@ -93,6 +93,53 @@ pub fn eval(expr: &Expr, env: &HashMap<String, Value>) -> Result<Value, EvalErro
                 })
             }
         }
+
+        Expr::PointComponent(e, (kind, s), _) => {
+            let v = eval(e,env)?;
+            let z_component_error =
+                    EvalError::ZComponentSelectorOnlyOnCoord6 {
+                        component_span: s.miette_span(), expr_span: e.miette_span(), expr_type: v.to_type_string() }.to_owned();
+            match v {
+                Value::Point1(p1) =>
+                    match kind {
+                        PointComponentKind::X => Ok(Value::Coord1(p1.x)),
+                        PointComponentKind::Y => Ok(Value::Coord1(p1.y)),
+                        PointComponentKind::Z => Err(z_component_error),
+
+                    },
+                Value::Point2(p2) =>
+                    match kind {
+                        PointComponentKind::X => Ok(Value::Coord2(p2.x)),
+                        PointComponentKind::Y => Ok(Value::Coord2(p2.y)),
+                        PointComponentKind::Z => Err(z_component_error),
+                    },
+                Value::Coord2(c2) =>
+                    match kind {
+                        PointComponentKind::X => Ok(Value::Coord1(c2.fp[0])),
+                        PointComponentKind::Y => Ok(Value::Coord1(c2.fp[1])),
+                        PointComponentKind::Z => Err(z_component_error),
+                    },
+                Value::Coord6(c6) =>
+                    match kind {
+                        PointComponentKind::X => Ok(Value::Coord2(c6.fp2[0])),
+                        PointComponentKind::Y => Ok(Value::Coord2(c6.fp2[1])),
+                        PointComponentKind::Z => Ok(Value::Coord2(c6.fp2[2])),
+                    },
+                Value::Coord12(c12) =>
+                    match kind {
+                        PointComponentKind::X => Ok(Value::Coord6(c12.fp6[0])),
+                        PointComponentKind::Y => Ok(Value::Coord6(c12.fp6[1])),
+                        PointComponentKind::Z => Err(z_component_error),
+                    },
+
+                _ => Err(EvalError::ComponentsOnlyValidForPointsAndCoords {
+                    component_span: s.miette_span(),
+                    expr_span: e.miette_span(),
+                    expr_type: v.to_type_string()
+                })
+            }
+        },
+
 
         Expr::Point1Compressed(bytes, _) => {
             let mut aff = blst_p1_affine::default();

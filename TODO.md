@@ -21,6 +21,8 @@
 - [x] Add embedding into F_p^12
 - [x] Add Scalar multiplication for Point2
 - [ ] Add polynomial representation in "info" command
+- [X] allow p.x and p.y syntax to get out the components of a Point1 / Point2
+      For Point2 `p2` you should be able to do `p2.x.x`, `p2.x.y` `p2.y.x`, `p2.y.y` and get out all four `Coord1`s that way.
 
 
 -------------------

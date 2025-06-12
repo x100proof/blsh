@@ -7,7 +7,7 @@ use log::debug;
 use miette::{self, Diagnostic};
 use thiserror::Error;
 
-use crate::ast::{Expr, Statement, Command, SpanInfo};
+use crate::ast::{Command, Expr, PointComponentKind, SpanInfo, Statement};
 
 type ErrorSpan = (usize, usize);
 
@@ -173,22 +173,38 @@ fn parse_expr(pair: Pair<Rule>) -> Result<Expr, ParseError> {
                 parse_expr(first)
             }
         }
-        Rule::primary => {
+        Rule::primary_or_component  => {
             let mut inner = pair.into_inner();
             let child = inner.next().unwrap();
-            match child.as_rule() {
-                Rule::expr => parse_expr(child),
-                _ => parse_primary(child),
+            let primary_expr = match child.as_rule() {
+                Rule::primary => parse_primary(child.into_inner().next().unwrap()),
+                _ => panic!("Expected rule::primary"),
+            }?;
+            let mut expr = primary_expr;
+            while let Some(component_pair) = inner.next() {
+                let component_span = component_pair.as_span();
+                let component_span_info = SpanInfo::from_span(component_span);
+                let span_info = expr.span_info().merge(&component_span_info);
+                let opt_kind = match component_span.as_str() {
+                    ".x" => Some(PointComponentKind::X),
+                    ".y" => Some(PointComponentKind::Y),
+                    ".z" => Some(PointComponentKind::Z),
+                    _    => None
+                };
+                if let Some(kind) = opt_kind {
+                  expr = Expr::PointComponent(Box::new(expr), (kind, component_span_info), span_info);
+                }
             }
+            Ok(expr)
         }
         _ => parse_primary(pair),
     }
 }
 
+
 fn parse_primary(pair: Pair<Rule>) -> Result<Expr, ParseError> {
     let span = pair.as_span();
-    let source = span.get_input().to_string();
-    debug!("Parsing primary: {}", source);
+    debug!("Parsing primary: {:?}", pair);
 
     match pair.as_rule() {
         Rule::bool => {
@@ -401,6 +417,8 @@ fn parse_primary(pair: Pair<Rule>) -> Result<Expr, ParseError> {
         // Rule::expr => parse_expr(pair), // seems to be handled up in parse_expr for some reason
 
         Rule::list_expr => parse_list_expr(pair),
+
+        Rule::expr => parse_expr(pair),
 
         _ => Err(ParseError::UnexpectedToken {
             span: span_to_error_span(span),

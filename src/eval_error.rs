@@ -205,6 +205,24 @@ pub enum EvalError {
         #[label("{expr_type}")]
         span: ErrorSpan,
         expr_type: String,
+    },
+
+    #[error("Component selectors .x/.y/.z can only be used on point and coordinate expressions")]
+    ComponentsOnlyValidForPointsAndCoords {
+        #[label("Component selector")]
+        component_span: ErrorSpan,
+        #[label("{expr_type}")]
+        expr_span: ErrorSpan,
+        expr_type: String,
+    },
+    #[error("The component selector .z can only be used on the Coord6 type")]
+    ZComponentSelectorOnlyOnCoord6 {
+        #[label("Component selector")]
+        component_span: ErrorSpan,
+        #[label("{expr_type}")]
+        expr_span: ErrorSpan,
+        expr_type: String,
     }
+
 
 }

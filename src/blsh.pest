@@ -14,7 +14,11 @@ eq_op       = { "==" }
 
 mul_expr    =  { neg_expr ~ ("*" ~ neg_expr)* }
 
-neg_expr = { "-" ~ neg_expr | /*"-p-" ~ neg_expr | "-e1-" ~ neg_expr | "-e2-"  ~ neg_expr |*/ primary }
+neg_expr = { "-" ~ neg_expr | primary_or_component }
+
+primary_or_component = { primary ~ (component)* }
+
+component = { ".x" | ".y" | ".z" }
 
 // Order is important here.
 // Put all rules for "reserved words" first
