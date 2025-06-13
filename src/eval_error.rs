@@ -89,14 +89,14 @@ pub enum EvalError {
         expr_type: String,
     },
 
-    #[error("`inv` expects a Coord12 operand")]
+    #[error("`inv` not defined on this type of expression ")]
     InvExpectsCoord12 {
         #[label("{expr_type}")]
         span: ErrorSpan,
         expr_type: String,
     },
 
-    #[error("`sqr` expects a Coord12 operand")]
+    #[error("`sqr` not defined on this type of expression")]
     SqrExpectsCoord12 {
         #[label("{expr_type}")]
         span: ErrorSpan,

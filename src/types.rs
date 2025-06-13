@@ -367,13 +367,25 @@ impl Value {
                 let on_curve = unsafe { blst_p2_on_curve(p) };
                 let in_g2 = unsafe { blst_p2_in_g2(p) };
                 let is_inf = unsafe { blst_p2_is_inf(p) };
+
+                let mut fp12_x = blst_fp12::default();
+                let mut fp12_y = blst_fp12::default();
+                fp12_x.fp6[0].fp2[0] = p.x.clone();
+                fp12_y.fp6[0].fp2[0] = p.y.clone();
+
+                unsafe { blst_fp12_frobenius_map(&mut fp12_x, &fp12_x,1) };
+                unsafe { blst_fp12_frobenius_map(&mut fp12_y, &fp12_y, 1) };
+
                 format!(
-                    "{}\nOn curve: {}\nIn G2:    {}\nInfinity: {}\nCompressed: 0x{}",
+                    "{}\nOn curve: {}\nIn G2:    {}\nInfinity: {}\nCompressed: 0x{}\n{}\n{}",
                     format!("{}", self),
                     on_curve,
                     in_g2,
                     is_inf,
-                    hex::encode(compressed)
+                    hex::encode(compressed),
+                    format!("{}", Value::Coord12(fp12_x)),
+
+                    format!("{}", Value::Coord12(fp12_y)),
                 )
             }
             Value::Coord12(fp12) => {
