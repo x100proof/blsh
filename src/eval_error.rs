@@ -228,7 +228,22 @@ pub enum EvalError {
         #[label("{expr_type}")]
         span: ErrorSpan,
         expr_type: String,
-    }
+    },
+
+    #[error("pow cannot have \"base\" of this type")]
+    PowCannotBeUsedOnThisBaseType {
+        #[label("{expr_type}")]
+        span: ErrorSpan,
+        expr_type: String,
+    },
+
+    #[error("pow must be used with scalar exponents")]
+    PowMustHaveScalarExponent {
+        #[label("{expr_type}")]
+        span: ErrorSpan,
+        expr_type: String,
+    },
+
 
 
 }

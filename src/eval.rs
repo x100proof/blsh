@@ -297,12 +297,26 @@ pub fn eval(expr: &Expr, env: &HashMap<String, Value>) -> Result<Value, EvalErro
         Expr::Pow(e1, e2, _) => {
             let v1 = eval(e1, env)?;
             let v2 = eval(e2, env)?;
-            match (&v1, &v2) {
-                (Value::Coord1(x), Value::Coord1(e)) =>
-                    Ok(Value::Coord1(fp_pow(*x,*e))),
-                _ => todo!()
+            match &v2 {
+                Value::Scalar(exp) => {
+                    match &v1 {
+                        Value::Coord1(base) =>
+                            Ok(Value::Coord1(pow(*base,exp))),
+                        Value::Coord2(base) =>
+                            Ok(Value::Coord2(pow(*base,exp))),
+                        Value::Coord12(base) =>
+                            Ok(Value::Coord12(pow(*base,exp))),
+                        _ => Err(EvalError::PowCannotBeUsedOnThisBaseType {
+                            span: e1.miette_span(),
+                            expr_type: v1.to_type_string(),
+                        }),
+                    }
+                },
+                _ => Err(EvalError::PowMustHaveScalarExponent {
+                        span: e2.miette_span(),
+                        expr_type: v2.to_type_string(),
+                }),
             }
-
         }
 
 
@@ -603,25 +617,83 @@ fn check_deserialize_error(err: BLST_ERROR, span: (usize, usize), curve: Curve) 
     Err(e)
 }
 
-fn fp_pow(x: blst_fp, e: blst_fp) -> blst_fp {
-    let mut exp = [0u8; 48];
-    unsafe { blst_bendian_from_fp(exp.as_mut_ptr(), &e)};
-    let mut result = blst_fp::default();
+fn fp_one() -> blst_fp {
+    let mut res = blst_fp::default();
     let mut bytes: [u8;48] = [0u8;48];
     bytes[bytes.len() - 1] = 1u8;
-    let mut acc = x.clone();
-    unsafe { blst_fp_from_bendian(&mut result, bytes.as_ptr()) };
-    for limb in exp.iter().rev() {
+    unsafe { blst_fp_from_bendian(&mut res, bytes.as_ptr())};
+    res
+}
+
+trait ModularExponentiation: Clone {
+    unsafe fn mul(ret: *mut Self, a: *const Self, b: *const Self);
+    unsafe fn sqr(ret: *mut Self, a: *const Self);
+    fn one() -> Self;
+}
+
+impl ModularExponentiation for blst_fp {
+
+    unsafe fn mul(ret: *mut Self, a: *const Self, b: *const Self) {
+        unsafe { blst_fp_mul(ret, a, b);  }
+    }
+
+    unsafe fn sqr(ret: *mut Self, a: *const Self) {
+        unsafe { blst_fp_sqr(ret, a);  }
+    }
+
+    fn one() -> Self { fp_one() }
+
+}
+
+impl ModularExponentiation for blst_fp2 {
+
+    unsafe fn mul(ret: *mut Self, a: *const Self, b: *const Self) {
+        unsafe { blst_fp2_mul(ret, a, b);  }
+    }
+
+    unsafe fn sqr(ret: *mut Self, a: *const Self) {
+        unsafe { blst_fp2_sqr(ret, a);  }
+    }
+
+    fn one() -> Self {
+        let mut res = blst_fp2::default();
+        res.fp[0] = fp_one();
+        res
+
+    }
+
+}
+
+impl ModularExponentiation for blst_fp12 {
+
+    unsafe fn mul(ret: *mut Self, a: *const Self, b: *const Self) {
+        unsafe { blst_fp12_mul(ret, a, b);  }
+    }
+
+    unsafe fn sqr(ret: *mut Self, a: *const Self) {
+        unsafe { blst_fp12_sqr(ret, a);  }
+    }
+
+    fn one() -> Self {
+        let mut res = blst_fp12::default();
+        res.fp6[0].fp2[0].fp[0] = fp_one();
+        res
+    }
+
+}
+
+fn pow<A: ModularExponentiation>(base: A, exp: &[u8]) -> A {
+    // e is in little endian order
+    let mut result = ModularExponentiation::one();
+    let mut acc = base.clone();
+    for limb in exp.iter() {
         for i in 0..8 {
             if ((limb >> i) & 1) != 0 {
                 // result = result * acc
-                unsafe { blst_fp_mul(&mut result, &result, &acc) };
+                unsafe { ModularExponentiation::mul(&mut result, &result, &acc) };
             }
-            unsafe { blst_fp_sqr(&mut acc, &acc) };
+            unsafe { ModularExponentiation::sqr(&mut acc, &acc) };
         }
     }
     result
 }
-
-
-
