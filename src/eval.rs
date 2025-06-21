@@ -620,8 +620,8 @@ fn check_deserialize_error(err: BLST_ERROR, span: (usize, usize), curve: Curve) 
 fn fp_one() -> blst_fp {
     let mut res = blst_fp::default();
     let mut bytes: [u8;48] = [0u8;48];
-    bytes[bytes.len() - 1] = 1u8;
-    unsafe { blst_fp_from_bendian(&mut res, bytes.as_ptr())};
+    bytes[0] = 1u8;
+    unsafe { blst_fp_from_lendian(&mut res, bytes.as_ptr())};
     res
 }
 
