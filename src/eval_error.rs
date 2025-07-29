@@ -180,7 +180,7 @@ pub enum EvalError {
         span: ErrorSpan
     },
 
-    #[error("Equality is not supported at all yet, but definitely not on unequal types")]
+    #[error("Equality is not supported on unequal types")]
     EqualityOnSameTypesOnly {
         #[label("{lhs_type}")]
         lhs_span: ErrorSpan,
