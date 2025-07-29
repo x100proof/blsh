@@ -186,6 +186,31 @@ pub fn eval(expr: &Expr, env: &HashMap<String, Value>) -> Result<Value, EvalErro
             Ok(Value::Point2(p))
         }
 
+        Expr::EmbedNFE(expr1, expr2, _) => {
+            let v1 = eval(expr1, env)?;
+            let v2 = eval(expr2, env)?;
+            match (v1, v2) {
+                (Value::Point1(p1), Value::Point2(p2)) => {
+                    let mut fp12 = blst_fp12::default();
+                    let mut aff1 = blst_p1_affine::default();
+                    let mut aff2 = blst_p2_affine::default();
+                    unsafe {
+                        blst_p1_to_affine(&mut aff1, &p1);
+                        blst_p2_to_affine(&mut aff2, &p2);
+                        blst_miller_loop(&mut fp12, &aff2, &aff1);
+                    }
+                    Ok(Value::Coord12(fp12))
+                }
+                (v1,v2) => Err(EvalError::EmbedHasIncorrectTypes {
+                         span1: expr1.miette_span(),
+                         span2: expr2.miette_span(),
+                         type1: v1.to_type_string(),
+                         type2: v2.to_type_string(),
+                })
+            }
+        }
+
+
         Expr::Embed(expr1, expr2, _) => {
             let v1 = eval(expr1, env)?;
             let v2 = eval(expr2, env)?;

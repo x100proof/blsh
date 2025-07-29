@@ -74,6 +74,7 @@ pub enum Expr {
     Point1Uncompressed([u8;96], SpanInfo),
     Point2Compressed([u8; 96], SpanInfo),
     Point2Uncompressed([u8;192], SpanInfo),
+    EmbedNFE(Box<Expr>, Box<Expr>, SpanInfo),
     Embed(Box<Expr>, Box<Expr>, SpanInfo),
     Inv(Box<Expr>, SpanInfo), // Coord12
     Sqr(Box<Expr>, SpanInfo), // Coord12
@@ -106,6 +107,7 @@ impl Expr {
             Expr::Point1Uncompressed(_, s) => s,
             Expr::Point2Compressed(_, s) => s,
             Expr::Point2Uncompressed(_, s) => s,
+            Expr::EmbedNFE(_, _, s) => s,
             Expr::Embed(_, _, s) => s,
             Expr::Inv(_, s) => s,
             Expr::Sqr(_, s) => s,
@@ -147,6 +149,7 @@ impl fmt::Debug for Expr {
             Expr::Point1Uncompressed(bytes, span_info) => f.debug_tuple("Point1Uncompressed").field(bytes).field(span_info).finish(),
             Expr::Point2Compressed(bytes, span_info) => f.debug_tuple("Point2Compressed").field(bytes).field(span_info).finish(),
             Expr::Point2Uncompressed(bytes, span_info) => f.debug_tuple("Point2Uncompressed").field(bytes).field(span_info).finish(),
+            Expr::EmbedNFE(e1, e2, span_info) => f.debug_tuple("EmbedNFE").field(e1).field(e2).field(span_info).finish(),
             Expr::Embed(e1, e2, span_info) => f.debug_tuple("Embed").field(e1).field(e2).field(span_info).finish(),
             Expr::Inv(e, span_info) => f.debug_tuple("Inv").field(e).field(span_info).finish(),
             Expr::Sqr(e, span_info) => f.debug_tuple("Sqr").field(e).field(span_info).finish(),

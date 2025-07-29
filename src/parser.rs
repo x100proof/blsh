@@ -408,6 +408,15 @@ fn parse_primary(pair: Pair<Rule>) -> Result<Expr, ParseError> {
             Ok(Expr::MapToG2(Box::new(x_expr), Box::new(y_expr), span_info))
         }
 
+        Rule::embed_nfe => {
+            let mut inner = pair.into_inner();
+            let p1 = parse_expr(inner.next().unwrap())?;
+            let p2 = parse_expr(inner.next().unwrap())?;
+            let span_info = SpanInfo::from_span(span);
+            Ok(Expr::EmbedNFE(Box::new(p1), Box::new(p2), span_info))
+        }
+
+
         Rule::embed => {
             let mut inner = pair.into_inner();
             let p1 = parse_expr(inner.next().unwrap())?;

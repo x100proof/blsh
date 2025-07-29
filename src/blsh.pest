@@ -32,6 +32,7 @@ primary     =  {
     | inv
     | map_to_g1
     | map_to_g2
+    | embed_nfe
     | embed
     | point
     | compressed_point1
@@ -94,6 +95,7 @@ miller_loop = { "miller_loop" ~ "(" ~ expr ~ ")"}
 
 map_to_g1 = { "map_to_g1" ~ "(" ~ expr ~ "," ~ expr ~ ")" }
 map_to_g2 = { "map_to_g2" ~ "(" ~ expr ~ "," ~ expr ~ ")" }
+embed_nfe = { "embed_nfe" ~ "(" ~ expr ~ "," ~ expr ~ ")" }
 embed = { "embed" ~ "(" ~ expr ~ "," ~ expr ~ ")" }
 
 ident       =  @{ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")* }

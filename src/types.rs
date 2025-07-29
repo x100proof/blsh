@@ -371,13 +371,24 @@ impl Value {
                 let mut pa = blst_p2_affine::default();
                 unsafe { blst_p2_to_affine(&mut pa, p);}
 
+                let mut q_lines: Vec<_> = vec![blst_fp6::default(); 68];
+                unsafe {
+                  blst_precompute_lines(q_lines.as_mut_ptr(), &pa);
+                }
+
+                let mut q_lines_str: String  = String::from("");
+                for i in 0..q_lines.len() {
+                    q_lines_str = format!("{}{}: {}\n", q_lines_str, i, Value::Coord6(q_lines[i]))
+                }
+
                 format!(
-                    "{}\nOn curve: {}\nIn G2:    {}\nInfinity: {}\nCompressed: 0x{}",
+                    "{}\nOn curve: {}\nIn G2:    {}\nInfinity: {}\nCompressed: 0x{}\n{}",
                     format!("{}", self),
                     on_curve,
                     in_g2,
                     is_inf,
                     hex::encode(compressed),
+                    q_lines_str,
                 )
             }
             Value::Coord12(fp12) => {
